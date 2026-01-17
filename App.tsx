@@ -115,21 +115,30 @@ const App: React.FC = () => {
 
   const deleteInfraction = useCallback(async (id: string) => {
     if (!window.confirm("CONFIRMA EXCLUSÃO DEFINITIVA?\nOs gráficos e relatórios serão atualizados imediatamente.")) return;
+
+    // Optimistic UI update first
+    let previous: TrafficInfraction[] = [];
+    setInfractions(prev => {
+      previous = prev;
+      const updated = prev.filter(item => item.id !== id);
+      if (!supabaseReady) {
+        localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
     if (supabaseReady) {
       try {
         await deleteInfractionById(id);
-        const refreshed = await fetchInfractions();
-        setInfractions(refreshed);
+        // Background refresh (non-blocking UI)
+        fetchInfractions().then(setInfractions).catch(() => {});
       } catch (e) {
-        alert('Falha ao excluir no servidor.');
+        alert('Falha ao excluir no servidor. A lista será restaurada.');
+        // Rollback
+        setInfractions(previous);
       }
       return;
     }
-    setInfractions(prev => {
-      const updated = prev.filter(item => item.id !== id);
-      localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
-      return [...updated];
-    });
   }, []);
 
   const saveProductivity = async (data: Omit<ProductivityRecord, 'id' | 'timestamp'>) => {
