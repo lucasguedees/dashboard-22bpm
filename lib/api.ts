@@ -43,6 +43,24 @@ export async function getOrCreateAppUser(authUserId: string, usernameFallback?: 
   } as User;
 }
 
+async function getCurrentProfileId(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data: authData, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !authData?.user?.id) return null;
+  const authUserId = authData.user.id;
+  // Try existing app_users row
+  const { data: prof, error: profErr } = await supabase
+    .from('app_users')
+    .select('id, username')
+    .eq('auth_user_id', authUserId)
+    .single();
+  if (!profErr && prof?.id) return prof.id as string;
+  // Create minimal profile if missing
+  const fallback = authData.user.email?.split('@')[0] || `user_${authUserId.slice(0, 8)}`;
+  const created = await getOrCreateAppUser(authUserId, fallback);
+  return created.id;
+}
+
 // -------- Traffic Infractions --------
 export async function fetchInfractions(): Promise<TrafficInfraction[]> {
   if (!supabase) throw new Error('Supabase not configured');
@@ -70,6 +88,7 @@ export async function fetchInfractions(): Promise<TrafficInfraction[]> {
 
 export async function insertInfraction(payload: Omit<TrafficInfraction, 'id' | 'timestamp' | 'total'>) {
   if (!supabase) throw new Error('Supabase not configured');
+  const profileId = await getCurrentProfileId();
   const { data, error } = await supabase
     .from('traffic_infractions')
     .insert({
@@ -80,7 +99,7 @@ export async function insertInfraction(payload: Omit<TrafficInfraction, 'id' | '
       motorcycles: payload.motorcycles,
       trucks: payload.trucks,
       others: payload.others,
-      created_by: null,
+      created_by: profileId,
     })
     .select('*')
     .single();
@@ -144,6 +163,7 @@ export async function fetchProductivity(): Promise<ProductivityRecord[]> {
 
 export async function insertProductivity(payload: Omit<ProductivityRecord, 'id' | 'timestamp'>) {
   if (!supabase) throw new Error('Supabase not configured');
+  const profileId = await getCurrentProfileId();
   const { data, error } = await supabase
     .from('productivity_records')
     .insert({
@@ -159,7 +179,7 @@ export async function insertProductivity(payload: Omit<ProductivityRecord, 'id' 
       drugs_kg: payload.drugsKg,
       weapons: payload.weapons,
       arrests: payload.arrests,
-      created_by: null,
+      created_by: profileId,
     })
     .select('*')
     .single();

@@ -192,3 +192,44 @@ using (
     where au.auth_user_id = auth.uid() and au.role = 'ADMIN'
   )
 );
+
+-- Admin auto-promotion setup
+create table if not exists public.admin_emails (
+  email text primary key
+);
+
+-- Seed requested admin email
+insert into public.admin_emails(email)
+values ('lucasm.guedes@yahoo.com.br')
+on conflict do nothing;
+
+-- Trigger to promote app_users to ADMIN if their auth email is listed
+create or replace function public.promote_admin_if_listed()
+returns trigger language plpgsql as $$
+begin
+  -- Ensure defaults
+  if new.role is null then new.role := 'USER'; end if;
+  if exists (
+    select 1
+    from auth.users u
+    join public.admin_emails ae on ae.email = u.email
+    where u.id = new.auth_user_id
+  ) then
+    new.role := 'ADMIN';
+    if new.rank is null then new.rank := 'Ten Cel'; end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists tr_app_users_promote_admin on public.app_users;
+create trigger tr_app_users_promote_admin
+before insert on public.app_users
+for each row execute procedure public.promote_admin_if_listed();
+
+-- Backfill existing profiles to ADMIN when email is listed
+update public.app_users au
+set role = 'ADMIN', rank = coalesce(au.rank, 'Ten Cel')
+where au.auth_user_id in (
+  select u.id from auth.users u join public.admin_emails ae on ae.email = u.email
+);
