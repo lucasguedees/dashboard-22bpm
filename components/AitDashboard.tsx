@@ -30,6 +30,7 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
 
   const [tableSearch, setTableSearch] = useState('');
   const [barPeriodFilter, setBarPeriodFilter] = useState<string>('latest');
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
 
   const toggleCity = (city: string) => {
     setSelectedCities(prev => {
@@ -287,7 +288,7 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
           <div className="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden shadow-xl no-export">
             <div className="p-6 border-b border-gray-800 flex flex-col sm:flex-row justify-between gap-4">
                 <h3 className="text-lg font-bold text-white">Histórico Detalhado</h3>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                     <input 
                       type="text" 
                       placeholder="Pesquisar cidade..." 
@@ -295,66 +296,77 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
                       onChange={(e) => setTableSearch(e.target.value)} 
                       className="bg-gray-800 border border-gray-700 text-xs rounded-xl px-4 py-2 outline-none text-white focus:ring-1 focus:ring-blue-500" 
                     />
+                    <button
+                      aria-expanded={isHistoryOpen}
+                      onClick={() => setIsHistoryOpen(v => !v)}
+                      className="px-3 py-2 text-xs font-black uppercase tracking-widest rounded-xl border border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white transition-colors flex items-center gap-2"
+                      title={isHistoryOpen ? 'Recolher' : 'Expandir'}
+                    >
+                      <svg className={`w-4 h-4 transition-transform ${isHistoryOpen ? '' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
+                      {isHistoryOpen ? 'Recolher' : 'Expandir'}
+                    </button>
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                    <thead className="bg-gray-800/50 text-gray-500 text-[10px] uppercase tracking-widest font-black">
-                        <tr>
-                            <th className="px-6 py-4">Cidade</th>
-                            <th className="px-6 py-4">Mês/Ano</th>
-                            <th className="px-6 py-4 text-center">Carros</th>
-                            <th className="px-6 py-4 text-center">Motos</th>
-                            <th className="px-6 py-4 text-center">Cam.</th>
-                            <th className="px-6 py-4 text-center">Outros</th>
-                            <th className="px-6 py-4 text-right">Total</th>
-                            {isAdmin && <th className="px-6 py-4 text-center">Ações</th>}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                        {tableData.map((row) => (
-                          <tr key={row.id} className="hover:bg-gray-800/30 transition-colors">
-                              <td className="px-6 py-4 font-bold text-white">{row.city}</td>
-                              <td className="px-6 py-4 text-gray-400 text-sm">{MONTHS[row.month]} de {row.year}</td>
-                              <td className="px-6 py-4 text-center text-gray-300">{row.cars}</td>
-                              <td className="px-6 py-4 text-center text-gray-300">{row.motorcycles}</td>
-                              <td className="px-6 py-4 text-center text-gray-300">{row.trucks}</td>
-                              <td className="px-6 py-4 text-center text-gray-300">{row.others}</td>
-                              <td className="px-6 py-4 text-right">
-                                  <span className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-lg text-xs font-black">
-                                      {row.total}
-                                  </span>
-                              </td>
-                              {isAdmin && (
-                                <td className="px-6 py-4 text-center">
-                                  <div className="flex justify-center gap-3">
-                                    <button 
-                                      onClick={() => onEdit?.(row)} 
-                                      className="text-gray-500 hover:text-blue-400 transition-colors"
-                                      title="Editar lançamento"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-                                    </button>
-                                    <button 
-                                      onClick={() => {
-                                        if (row.id && onDelete) {
-                                          onDelete(row.id);
-                                        }
-                                      }} 
-                                      className="text-gray-500 hover:text-red-500 transition-colors"
-                                      title="Excluir lançamento"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                    </button>
-                                  </div>
-                                </td>
-                              )}
+            {isHistoryOpen && (
+              <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                      <thead className="bg-gray-800/50 text-gray-500 text-[10px] uppercase tracking-widest font-black">
+                          <tr>
+                              <th className="px-6 py-4">Cidade</th>
+                              <th className="px-6 py-4">Mês/Ano</th>
+                              <th className="px-6 py-4 text-center">Carros</th>
+                              <th className="px-6 py-4 text-center">Motos</th>
+                              <th className="px-6 py-4 text-center">Cam.</th>
+                              <th className="px-6 py-4 text-center">Outros</th>
+                              <th className="px-6 py-4 text-right">Total</th>
+                              {isAdmin && <th className="px-6 py-4 text-center">Ações</th>}
                           </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                          {tableData.map((row) => (
+                            <tr key={row.id} className="hover:bg-gray-800/30 transition-colors">
+                                <td className="px-6 py-4 font-bold text-white">{row.city}</td>
+                                <td className="px-6 py-4 text-gray-400 text-sm">{MONTHS[row.month]} de {row.year}</td>
+                                <td className="px-6 py-4 text-center text-gray-300">{row.cars}</td>
+                                <td className="px-6 py-4 text-center text-gray-300">{row.motorcycles}</td>
+                                <td className="px-6 py-4 text-center text-gray-300">{row.trucks}</td>
+                                <td className="px-6 py-4 text-center text-gray-300">{row.others}</td>
+                                <td className="px-6 py-4 text-right">
+                                    <span className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-lg text-xs font-black">
+                                        {row.total}
+                                    </span>
+                                </td>
+                                {isAdmin && (
+                                  <td className="px-6 py-4 text-center">
+                                    <div className="flex justify-center gap-3">
+                                      <button 
+                                        onClick={() => onEdit?.(row)} 
+                                        className="text-gray-500 hover:text-blue-400 transition-colors"
+                                        title="Editar lançamento"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                      </button>
+                                      <button 
+                                        onClick={() => {
+                                          if (row.id && onDelete) {
+                                            onDelete(row.id);
+                                          }
+                                        }} 
+                                        className="text-gray-500 hover:text-red-500 transition-colors"
+                                        title="Excluir lançamento"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                      </button>
+                                    </div>
+                                  </td>
+                                )}
+                            </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              </div>
+            )}
           </div>
 
           <div className="no-export">
