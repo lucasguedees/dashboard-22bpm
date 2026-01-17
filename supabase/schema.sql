@@ -233,3 +233,7 @@ set role = 'ADMIN', rank = coalesce(au.rank, 'Ten Cel')
 where au.auth_user_id in (
   select u.id from auth.users u join public.admin_emails ae on ae.email = u.email
 );
+
+-- Add email column to app_users (for linking profiles by email)
+alter table if exists public.app_users
+  add column if not exists email text unique;

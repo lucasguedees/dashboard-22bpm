@@ -1,12 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
+import { supabaseReady, listAppUsers, createAppUser, deleteAppUser } from '../lib/api';
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
+    email: '',
     rank: 'Sd',
     role: 'USER' as UserRole,
     password: ''
@@ -15,12 +17,43 @@ const UserManagement: React.FC = () => {
   const ranks = ['Ten Cel', 'Maj', 'Cap', '1º Ten', '2º Ten', 'Sub Ten', '1º Sgt', '2º Sgt', '3º Sgt', 'Cb', 'Sd'];
 
   useEffect(() => {
-    const saved = localStorage.getItem('22bpm_users_list');
-    if (saved) setUsers(JSON.parse(saved));
+    const load = async () => {
+      if (supabaseReady) {
+        try {
+          const rows = await listAppUsers();
+          const mapped: User[] = rows.map(r => ({ id: r.id, username: r.username, role: r.role, rank: r.rank }));
+          setUsers(mapped);
+          return;
+        } catch (e) {
+          console.warn('Falha ao carregar usuários do Supabase, usando localStorage...', e);
+        }
+      }
+      const saved = localStorage.getItem('22bpm_users_list');
+      if (saved) setUsers(JSON.parse(saved));
+    };
+    load();
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (supabaseReady) {
+      try {
+        const created = await createAppUser({
+          username: formData.username,
+          email: formData.email || null,
+          role: formData.role,
+          rank: formData.rank,
+        });
+        const updated = [...users, { id: created.id, username: created.username, role: created.role, rank: created.rank }];
+        setUsers(updated);
+        setIsAdding(false);
+        setFormData({ username: '', email: '', rank: 'Sd', role: 'USER', password: '' });
+        return;
+      } catch (err) {
+        alert('Falha ao criar usuário no Supabase. Verifique permissões RLS.');
+      }
+    }
+    // Fallback localStorage
     const newUser: User = {
       id: crypto.randomUUID(),
       username: formData.username,
@@ -32,15 +65,24 @@ const UserManagement: React.FC = () => {
     setUsers(updated);
     localStorage.setItem('22bpm_users_list', JSON.stringify(updated));
     setIsAdding(false);
-    setFormData({ username: '', rank: 'Sd', role: 'USER', password: '' });
+    setFormData({ username: '', email: '', rank: 'Sd', role: 'USER', password: '' });
   };
 
-  const deleteUser = (id: string) => {
-    if (confirm("Deseja realmente remover este usuário?")) {
-      const updated = users.filter(u => u.id !== id);
-      setUsers(updated);
-      localStorage.setItem('22bpm_users_list', JSON.stringify(updated));
+  const deleteUser = async (id: string) => {
+    if (!confirm("Deseja realmente remover este usuário?")) return;
+    if (supabaseReady) {
+      try {
+        await deleteAppUser(id);
+        setUsers(prev => prev.filter(u => u.id !== id));
+        return;
+      } catch (err) {
+        alert('Falha ao remover usuário no Supabase.');
+        return;
+      }
     }
+    const updated = users.filter(u => u.id !== id);
+    setUsers(updated);
+    localStorage.setItem('22bpm_users_list', JSON.stringify(updated));
   };
 
   return (
@@ -66,14 +108,24 @@ const UserManagement: React.FC = () => {
       {isAdding && (
         <form onSubmit={handleSave} className="bg-gray-900 border border-gray-800 p-6 rounded-3xl mb-8 shadow-2xl grid grid-cols-1 md:grid-cols-4 gap-4 animate-slideDown">
           <div className="flex flex-col">
-            <label className="text-xs text-gray-500 font-bold uppercase mb-2">Usuário de Rede</label>
+            <label className="text-xs text-gray-500 font-bold uppercase mb-2">Usuário</label>
             <input 
               type="text" 
               required
               value={formData.username}
-              onChange={e => setFormData({...formData, username: e.target.value.toLowerCase()})}
+              onChange={e => setFormData({...formData, username: e.target.value})}
               className="bg-gray-800 border border-gray-700 text-white rounded-xl p-3 outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="ex: p3.sobrenome"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 font-bold uppercase mb-2">E-mail</label>
+            <input 
+              type="email" 
+              value={formData.email}
+              onChange={e => setFormData({...formData, email: e.target.value})}
+              className="bg-gray-800 border border-gray-700 text-white rounded-xl p-3 outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="email@exemplo.com"
             />
           </div>
           <div className="flex flex-col">
@@ -99,19 +151,13 @@ const UserManagement: React.FC = () => {
             </select>
           </div>
           <div className="flex flex-col">
-            <label className="text-xs text-gray-500 font-bold uppercase mb-2">Senha Inicial</label>
+            <label className="text-xs text-gray-500 font-bold uppercase mb-2">Salvar</label>
             <div className="flex items-center space-x-2">
-              <input 
-                type="password" 
-                required
-                value={formData.password}
-                onChange={e => setFormData({...formData, password: e.target.value})}
-                className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-xl p-3 outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 p-3 rounded-xl transition-all">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+              <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 px-4 py-3 rounded-xl transition-all text-white font-bold">
+                Salvar Usuário
               </button>
             </div>
+            <p className="text-[10px] text-gray-500 mt-2">Observação: a criação no Supabase registra o perfil. O próprio usuário deve usar a tela de login para criar sua conta (e‑mail/senha) e vincular automaticamente.</p>
           </div>
         </form>
       )}
@@ -123,6 +169,7 @@ const UserManagement: React.FC = () => {
               <th className="px-6 py-4">Status</th>
               <th className="px-6 py-4">Posto/Grad</th>
               <th className="px-6 py-4">Nome de Usuário</th>
+              <th className="px-6 py-4">E-mail</th>
               <th className="px-6 py-4">Perfil</th>
               <th className="px-6 py-4 text-right">Ações</th>
             </tr>
@@ -135,6 +182,7 @@ const UserManagement: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 text-white font-bold">{u.rank}</td>
                 <td className="px-6 py-4 text-gray-300 font-mono text-sm">{u.username}</td>
+                <td className="px-6 py-4 text-gray-400 text-sm">{(u as any).email ?? '-'}</td>
                 <td className="px-6 py-4">
                   <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                     u.role === 'ADMIN' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 

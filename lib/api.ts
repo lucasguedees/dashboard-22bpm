@@ -3,6 +3,14 @@ import type { TrafficInfraction, ProductivityRecord, User } from '../types';
 
 export const supabaseReady = !!supabase;
 
+export interface AppUserRow {
+  id: string;
+  username: string;
+  email?: string | null;
+  role: User['role'];
+  rank: string;
+}
+
 // -------- App Users (profiles) --------
 export async function getOrCreateAppUser(authUserId: string, usernameFallback?: string): Promise<User> {
   if (!supabase) throw new Error('Supabase not configured');
@@ -10,7 +18,7 @@ export async function getOrCreateAppUser(authUserId: string, usernameFallback?: 
   // Try to find existing profile
   const { data: found, error: findErr } = await supabase
     .from('app_users')
-    .select('*')
+    .select('id, username, role, rank, email')
     .eq('auth_user_id', authUserId)
     .single();
   if (!findErr && found) {
@@ -22,17 +30,45 @@ export async function getOrCreateAppUser(authUserId: string, usernameFallback?: 
     } as User;
   }
 
+  // If not found by auth_user_id, try link by email (admin may have pre-created profile with email)
+  const { data: authData } = await supabase.auth.getUser();
+  const email = authData?.user?.email ?? null;
+  if (email) {
+    const { data: byEmail } = await supabase
+      .from('app_users')
+      .select('id, username, role, rank')
+      .eq('email', email)
+      .single();
+    if (byEmail?.id) {
+      const { data: linked } = await supabase
+        .from('app_users')
+        .update({ auth_user_id: authUserId })
+        .eq('id', byEmail.id)
+        .select('id, username, role, rank')
+        .single();
+      if (linked) {
+        return {
+          id: linked.id,
+          username: linked.username,
+          role: linked.role,
+          rank: linked.rank,
+        } as User;
+      }
+    }
+  }
+
   // Create minimal profile if not exists
-  const username = usernameFallback || `user_${authUserId.slice(0, 8)}`;
+  const username = usernameFallback || (email ? email.split('@')[0] : `user_${authUserId.slice(0, 8)}`);
   const { data: created, error: createErr } = await supabase
     .from('app_users')
     .insert({
       auth_user_id: authUserId,
       username,
+      email,
       role: 'USER',
       rank: 'Sd',
     })
-    .select('*')
+    .select('id, username, role, rank')
     .single();
   if (createErr) throw createErr;
   return {
@@ -59,6 +95,52 @@ async function getCurrentProfileId(): Promise<string | null> {
   const fallback = authData.user.email?.split('@')[0] || `user_${authUserId.slice(0, 8)}`;
   const created = await getOrCreateAppUser(authUserId, fallback);
   return created.id;
+}
+
+// -------- App Users CRUD (for UserManagement) --------
+export async function listAppUsers(): Promise<AppUserRow[]> {
+  if (!supabase) throw new Error('Supabase not configured');
+  const { data, error } = await supabase
+    .from('app_users')
+    .select('id, username, email, role, rank')
+    .order('username', { ascending: true });
+  if (error) throw error;
+  return (data || []) as AppUserRow[];
+}
+
+export async function createAppUser(row: { username: string; email?: string | null; role: User['role']; rank: string; auth_user_id?: string | null; }): Promise<AppUserRow> {
+  if (!supabase) throw new Error('Supabase not configured');
+  const { data, error } = await supabase
+    .from('app_users')
+    .insert({
+      username: row.username,
+      email: row.email ?? null,
+      role: row.role,
+      rank: row.rank,
+      auth_user_id: row.auth_user_id ?? null,
+    })
+    .select('id, username, email, role, rank')
+    .single();
+  if (error) throw error;
+  return data as AppUserRow;
+}
+
+export async function updateAppUser(id: string, patch: Partial<{ username: string; email: string | null; role: User['role']; rank: string; }>): Promise<AppUserRow> {
+  if (!supabase) throw new Error('Supabase not configured');
+  const { data, error } = await supabase
+    .from('app_users')
+    .update(patch)
+    .eq('id', id)
+    .select('id, username, email, role, rank')
+    .single();
+  if (error) throw error;
+  return data as AppUserRow;
+}
+
+export async function deleteAppUser(id: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured');
+  const { error } = await supabase.from('app_users').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // -------- Traffic Infractions --------
