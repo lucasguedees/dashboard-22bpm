@@ -10,6 +10,7 @@ import UserManagement from './components/UserManagement';
 import Login from './components/Login';
 import { ViewType, TrafficInfraction, ProductivityRecord, User } from './types';
 import { ShieldIcon } from './constants';
+import { supabaseReady, fetchInfractions, fetchProductivity, insertInfraction, updateInfraction, deleteInfractionById, insertProductivity, updateProductivity, deleteProductivityById } from './lib/api';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -22,26 +23,38 @@ const App: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    const init = () => {
-      const savedUsers = localStorage.getItem('22bpm_users_list');
-      if (!savedUsers) {
-        const defaultUsers: User[] = [
-          { id: '1', username: 'admin', role: 'ADMIN', rank: 'Ten Cel', password: '22' },
-          { id: '2', username: 'comando', role: 'COMANDO', rank: 'Maj', password: '22' }
-        ];
-        localStorage.setItem('22bpm_users_list', JSON.stringify(defaultUsers));
+    const init = async () => {
+      try {
+        const savedUsers = localStorage.getItem('22bpm_users_list');
+        if (!savedUsers) {
+          const defaultUsers: User[] = [
+            { id: '1', username: 'admin', role: 'ADMIN', rank: 'Ten Cel', password: '22' },
+            { id: '2', username: 'comando', role: 'COMANDO', rank: 'Maj', password: '22' }
+          ];
+          localStorage.setItem('22bpm_users_list', JSON.stringify(defaultUsers));
+        }
+
+        const savedUser = localStorage.getItem('22bpm_user');
+        if (savedUser) setUser(JSON.parse(savedUser));
+
+        if (supabaseReady) {
+          // Fetch from Supabase
+          const [ait, prod] = await Promise.all([
+            fetchInfractions().catch(() => [] as TrafficInfraction[]),
+            fetchProductivity().catch(() => [] as ProductivityRecord[])
+          ]);
+          if (ait.length) setInfractions(ait);
+          if (prod.length) setProductivity(prod);
+        } else {
+          // Fallback to localStorage
+          const savedAit = localStorage.getItem('22bpm_infractions');
+          if (savedAit) setInfractions(JSON.parse(savedAit));
+          const savedProd = localStorage.getItem('22bpm_productivity');
+          if (savedProd) setProductivity(JSON.parse(savedProd));
+        }
+      } finally {
+        setIsInitializing(false);
       }
-
-      const savedUser = localStorage.getItem('22bpm_user');
-      if (savedUser) setUser(JSON.parse(savedUser));
-
-      const savedAit = localStorage.getItem('22bpm_infractions');
-      if (savedAit) setInfractions(JSON.parse(savedAit));
-      
-      const savedProd = localStorage.getItem('22bpm_productivity');
-      if (savedProd) setProductivity(JSON.parse(savedProd));
-      
-      setIsInitializing(false);
     };
     init();
   }, []);
@@ -57,9 +70,27 @@ const App: React.FC = () => {
     setActiveView('HOME');
   };
 
-  const saveInfraction = (data: Omit<TrafficInfraction, 'id' | 'timestamp' | 'total'>) => {
+  const saveInfraction = async (data: Omit<TrafficInfraction, 'id' | 'timestamp' | 'total'>) => {
     const total = data.cars + data.motorcycles + data.trucks + data.others;
-    
+    if (supabaseReady) {
+      try {
+        if (editingAit) {
+          await updateInfraction(editingAit.id, data);
+          setEditingAit(null);
+          const refreshed = await fetchInfractions();
+          setInfractions(refreshed);
+          setActiveView('AIT_DASHBOARD');
+        } else {
+          await insertInfraction(data);
+          const refreshed = await fetchInfractions();
+          setInfractions(refreshed);
+        }
+      } catch (e) {
+        alert('Falha ao salvar no servidor. Verifique a conexão.');
+      }
+      return;
+    }
+    // Fallback localStorage
     setInfractions(prev => {
       let updated: TrafficInfraction[];
       if (editingAit) {
@@ -82,17 +113,44 @@ const App: React.FC = () => {
     });
   };
 
-  const deleteInfraction = useCallback((id: string) => {
-    if (window.confirm("CONFIRMA EXCLUSÃO DEFINITIVA?\nOs gráficos e relatórios serão atualizados imediatamente.")) {
-      setInfractions(prev => {
-        const updated = prev.filter(item => item.id !== id);
-        localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
-        return [...updated];
-      });
+  const deleteInfraction = useCallback(async (id: string) => {
+    if (!window.confirm("CONFIRMA EXCLUSÃO DEFINITIVA?\nOs gráficos e relatórios serão atualizados imediatamente.")) return;
+    if (supabaseReady) {
+      try {
+        await deleteInfractionById(id);
+        const refreshed = await fetchInfractions();
+        setInfractions(refreshed);
+      } catch (e) {
+        alert('Falha ao excluir no servidor.');
+      }
+      return;
     }
+    setInfractions(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
+      return [...updated];
+    });
   }, []);
 
-  const saveProductivity = (data: Omit<ProductivityRecord, 'id' | 'timestamp'>) => {
+  const saveProductivity = async (data: Omit<ProductivityRecord, 'id' | 'timestamp'>) => {
+    if (supabaseReady) {
+      try {
+        if (editingProd) {
+          await updateProductivity(editingProd.id, data);
+          setEditingProd(null);
+          const refreshed = await fetchProductivity();
+          setProductivity(refreshed);
+          setActiveView('PRODUCTIVITY_DASHBOARD');
+        } else {
+          await insertProductivity(data);
+          const refreshed = await fetchProductivity();
+          setProductivity(refreshed);
+        }
+      } catch (e) {
+        alert('Falha ao salvar no servidor. Verifique a conexão.');
+      }
+      return;
+    }
     setProductivity(prev => {
       let updated: ProductivityRecord[];
       if (editingProd) {
@@ -114,14 +172,23 @@ const App: React.FC = () => {
     });
   };
 
-  const deleteProductivity = useCallback((id: string) => {
-    if (window.confirm("CONFIRMA EXCLUSÃO DEFINITIVA DO REGISTRO DE PRODUTIVIDADE?")) {
-      setProductivity(prev => {
-        const updated = prev.filter(item => item.id !== id);
-        localStorage.setItem('22bpm_productivity', JSON.stringify(updated));
-        return [...updated];
-      });
+  const deleteProductivity = useCallback(async (id: string) => {
+    if (!window.confirm("CONFIRMA EXCLUSÃO DEFINITIVA DO REGISTRO DE PRODUTIVIDADE?")) return;
+    if (supabaseReady) {
+      try {
+        await deleteProductivityById(id);
+        const refreshed = await fetchProductivity();
+        setProductivity(refreshed);
+      } catch (e) {
+        alert('Falha ao excluir no servidor.');
+      }
+      return;
     }
+    setProductivity(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      localStorage.setItem('22bpm_productivity', JSON.stringify(updated));
+      return [...updated];
+    });
   }, []);
 
   const handleImportAll = (newInfractions: TrafficInfraction[], newProductivity: ProductivityRecord[], newUsers?: User[]) => {
