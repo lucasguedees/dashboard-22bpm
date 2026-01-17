@@ -237,3 +237,35 @@ where au.auth_user_id in (
 -- Add email column to app_users (for linking profiles by email)
 alter table if exists public.app_users
   add column if not exists email text unique;
+
+-- Helper to check ADMIN by JWT email (no auth.users required)
+create or replace function public.is_admin()
+returns boolean language sql stable as $$
+  select exists (
+    select 1 from public.admin_emails ae
+    where ae.email = (auth.jwt() ->> 'email')
+  );
+$$;
+
+-- Allow DELETE by owner or admin on traffic_infractions
+drop policy if exists "infraction_delete_owner_or_admin" on public.traffic_infractions;
+create policy "infraction_delete_owner_or_admin"
+on public.traffic_infractions for delete
+to authenticated
+using (
+  (created_by in (select id from public.app_users where auth_user_id = auth.uid()))
+  or public.is_admin()
+);
+
+-- Optional: productivity delete as well (keep symmetric behaviors)
+drop policy if exists "prod_delete_owner_or_admin" on public.productivity_records;
+create policy "prod_delete_owner_or_admin"
+on public.productivity_records for delete
+to authenticated
+using (
+  (created_by in (select id from public.app_users where auth_user_id = auth.uid()))
+  or public.is_admin()
+);
+
+-- PostgREST schema cache reload hint
+notify pgrst, 'reload schema';
