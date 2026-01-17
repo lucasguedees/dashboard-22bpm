@@ -2,39 +2,47 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { ShieldIcon } from '../constants';
+import { supabase } from '../lib/supabase';
+import { getOrCreateAppUser } from '../lib/api';
 
 interface LoginProps {
   onLogin: (user: User) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    try {
+      if (!supabase) throw new Error('Supabase não configurado');
+      if (!email.includes('@')) throw new Error('Informe um e-mail válido.');
 
-    setTimeout(() => {
-      const savedUsersRaw = localStorage.getItem('22bpm_users_list');
-      const usersList: User[] = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
+      // Tenta login. Se não existir, tenta criar conta rapidamente.
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+      let authUserId: string | null = signInData?.user?.id || null;
 
-      const found = usersList.find(u => 
-        u.username.toLowerCase() === username.toLowerCase() && 
-        u.password === password
-      );
-
-      if (found) {
-        const { password: _, ...userSession } = found as any;
-        onLogin(userSession);
-      } else {
-        setError('Acesso Negado: Credenciais inválidas ou sem permissão.');
-        setLoading(false);
+      if (signInErr) {
+        // Tentativa de cadastro (fluxo simples)
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password });
+        if (signUpErr) throw signUpErr;
+        authUserId = signUpData.user?.id || null;
       }
-    }, 1200);
+
+      if (!authUserId) throw new Error('Falha de autenticação.');
+
+      // Busca ou cria perfil em app_users
+      const profile = await getOrCreateAppUser(authUserId, email.split('@')[0]);
+      onLogin(profile);
+    } catch (err: any) {
+      setError(err?.message || 'Falha na autenticação.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,14 +68,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           )}
 
           <div>
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 mb-2 block">Usuário</label>
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1 mb-2 block">E-mail</label>
             <input 
-              type="text" 
-              value={username}
-              autoComplete="username"
-              onChange={(e) => setUsername(e.target.value)}
+              type="email" 
+              value={email}
+              autoComplete="email"
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-4 py-3.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-gray-600"
-              placeholder="usuário de rede"
+              placeholder="seu@email.com"
               required
             />
           </div>

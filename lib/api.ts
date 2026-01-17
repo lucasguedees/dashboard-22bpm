@@ -1,7 +1,47 @@
 import { supabase } from './supabase';
-import type { TrafficInfraction, ProductivityRecord } from '../types';
+import type { TrafficInfraction, ProductivityRecord, User } from '../types';
 
 export const supabaseReady = !!supabase;
+
+// -------- App Users (profiles) --------
+export async function getOrCreateAppUser(authUserId: string, usernameFallback?: string): Promise<User> {
+  if (!supabase) throw new Error('Supabase not configured');
+
+  // Try to find existing profile
+  const { data: found, error: findErr } = await supabase
+    .from('app_users')
+    .select('*')
+    .eq('auth_user_id', authUserId)
+    .single();
+  if (!findErr && found) {
+    return {
+      id: found.id,
+      username: found.username,
+      role: found.role,
+      rank: found.rank,
+    } as User;
+  }
+
+  // Create minimal profile if not exists
+  const username = usernameFallback || `user_${authUserId.slice(0, 8)}`;
+  const { data: created, error: createErr } = await supabase
+    .from('app_users')
+    .insert({
+      auth_user_id: authUserId,
+      username,
+      role: 'USER',
+      rank: 'Sd',
+    })
+    .select('*')
+    .single();
+  if (createErr) throw createErr;
+  return {
+    id: created!.id,
+    username: created!.username,
+    role: created!.role,
+    rank: created!.rank,
+  } as User;
+}
 
 // -------- Traffic Infractions --------
 export async function fetchInfractions(): Promise<TrafficInfraction[]> {

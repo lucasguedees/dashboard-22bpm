@@ -1,4 +1,4 @@
--- Supabase schema for 22º BPM dashboard
+﻿-- Supabase schema for 22Âº BPM dashboard
 create extension if not exists "uuid-ossp";
 create extension if not exists "pgcrypto";
 
@@ -117,7 +117,8 @@ alter table public.app_users enable row level security;
 alter table public.traffic_infractions enable row level security;
 alter table public.productivity_records enable row level security;
 
-create policy if not exists "app_users_select_own_or_admin"
+drop policy if exists "app_users_select_own_or_admin" on public.app_users;
+create policy "app_users_select_own_or_admin"
 on public.app_users for select
 using (
   auth.uid() = auth_user_id
@@ -127,7 +128,8 @@ using (
   )
 );
 
-create policy if not exists "app_users_update_own_or_admin"
+drop policy if exists "app_users_update_own_or_admin" on public.app_users;
+create policy "app_users_update_own_or_admin"
 on public.app_users for update
 using (
   auth.uid() = auth_user_id
@@ -137,17 +139,23 @@ using (
   )
 );
 
-create policy if not exists "infraction_select_authenticated"
+drop policy if exists "infraction_select_authenticated" on public.traffic_infractions;
+create policy "infraction_select_authenticated"
 on public.traffic_infractions for select
 to authenticated
 using (true);
 
-create policy if not exists "infraction_insert_user"
+drop policy if exists "infraction_insert_user" on public.traffic_infractions;
+create policy "infraction_insert_user"
 on public.traffic_infractions for insert
 to authenticated
-with check (created_by is null or created_by in (select id from public.app_users where auth_user_id = auth.uid()));
+with check (
+  created_by is null
+  or created_by in (select id from public.app_users where auth_user_id = auth.uid())
+);
 
-create policy if not exists "infraction_update_owner_or_admin"
+drop policy if exists "infraction_update_owner_or_admin" on public.traffic_infractions;
+create policy "infraction_update_owner_or_admin"
 on public.traffic_infractions for update
 to authenticated
 using (
@@ -158,17 +166,23 @@ using (
   )
 );
 
-create policy if not exists "prod_select_authenticated"
+drop policy if exists "prod_select_authenticated" on public.productivity_records;
+create policy "prod_select_authenticated"
 on public.productivity_records for select
 to authenticated
 using (true);
 
-create policy if not exists "prod_insert_user"
+drop policy if exists "prod_insert_user" on public.productivity_records;
+create policy "prod_insert_user"
 on public.productivity_records for insert
 to authenticated
-with check (created_by is null or created_by in (select id from public.app_users where auth_user_id = auth.uid()));
+with check (
+  created_by is null
+  or created_by in (select id from public.app_users where auth_user_id = auth.uid())
+);
 
-create policy if not exists "prod_update_owner_or_admin"
+drop policy if exists "prod_update_owner_or_admin" on public.productivity_records;
+create policy "prod_update_owner_or_admin"
 on public.productivity_records for update
 to authenticated
 using (
