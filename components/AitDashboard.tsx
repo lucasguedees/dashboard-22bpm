@@ -139,9 +139,10 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
     
     return uniquePeriods.map(period => {
       const [year, month] = (period as string).split('-').map(Number);
+      const monthName = MONTHS[month] || ''; // Garante que temos uma string vazia se o mês for inválido
       const entry: any = {
-        periodLabel: `${MONTHS[month].substring(0, 3)}/${String(year).substring(2)}`,
-        fullName: `${MONTHS[month]} de ${year}`
+        periodLabel: monthName ? `${monthName.substring(0, 3)}/${String(year).substring(2)}` : `${month}/${String(year).substring(2)}`,
+        fullName: monthName ? `${monthName} de ${year}` : `Mês ${month} de ${year}`
       };
       selectedCities.forEach(city => {
         const record = records.find(d => d.city === city && d.month === month && d.year === year);

@@ -139,32 +139,36 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
   };
 
   // Obter dados para o gráfico baseado nos filtros
-  const getChartData = (yearFilter: string, monthFilter: string) => {
-    let filteredData = [...data];
+  const getChartData = (yearFilter: string | undefined, monthFilter: string | undefined) => {
+    if (!yearFilter || !monthFilter) return [];
+    
+    let filteredData = [...(data || [])];
     
     // Aplicar filtros de ano e mês
     filteredData = filterDataByYearMonth(filteredData, yearFilter, monthFilter);
     
-    // Se não houver dados, retornar array vazio
-    if (filteredData.length === 0) return [];
+    // Se não houver dados ou cidades selecionadas, retornar array vazio
+    if (filteredData.length === 0 || !selectedCities || selectedCities.length === 0) return [];
     
     // Agrupar por cidade
     const cityData = selectedCities.map(city => {
-      const cityRecords = filteredData.filter(d => d.city === city);
+      if (!city) return null;
+      
+      const cityRecords = filteredData.filter(d => d && d.city === city);
       if (cityRecords.length === 0) return null;
       
-      // Calcular totais para a cidade
+      // Calcular totais para a cidade com verificações de segurança
       return {
         name: city,
-        BA: cityRecords.reduce((sum, d) => sum + (d.ba || 0), 0),
-        COP: cityRecords.reduce((sum, d) => sum + (d.cop || 0), 0),
-        TC: cityRecords.reduce((sum, d) => sum + (d.tc || 0), 0),
-        Prisões: cityRecords.reduce((sum, d) => sum + (d.arrests || 0), 0),
-        Armas: cityRecords.reduce((sum, d) => sum + (d.weapons || 0), 0),
-        Drogas: parseFloat(cityRecords.reduce((sum, d) => sum + (d.drugsKg || 0), 0).toFixed(1)),
-        Abordagens: cityRecords.reduce((sum, d) => sum + (d.peopleApproached || 0), 0),
-        'Veículos': cityRecords.reduce((sum, d) => sum + (d.vehiclesInspected || 0), 0),
-        Foragidos: cityRecords.reduce((sum, d) => sum + (d.fugitives || 0), 0)
+        BA: cityRecords.reduce((sum, d) => sum + (d?.ba || 0), 0),
+        COP: cityRecords.reduce((sum, d) => sum + (d?.cop || 0), 0),
+        TC: cityRecords.reduce((sum, d) => sum + (d?.tc || 0), 0),
+        Prisões: cityRecords.reduce((sum, d) => sum + (d?.arrests || 0), 0),
+        Armas: cityRecords.reduce((sum, d) => sum + (d?.weapons || 0), 0),
+        Drogas: parseFloat(cityRecords.reduce((sum, d) => sum + (d?.drugsKg || 0), 0).toFixed(1)),
+        Abordagens: cityRecords.reduce((sum, d) => sum + (d?.peopleApproached || 0), 0),
+        'Veículos': cityRecords.reduce((sum, d) => sum + (d?.vehiclesInspected || 0), 0),
+        Foragidos: cityRecords.reduce((sum, d) => sum + (d?.fugitives || 0), 0)
       };
     }).filter(Boolean);
     
