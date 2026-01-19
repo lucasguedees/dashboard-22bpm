@@ -1,6 +1,9 @@
 
 import React from 'react';
 
+// Importar a imagem diretamente
+import brasaoImg from '../public/brasao.png';
+
 export const CITIES = [
   "Arroio do Meio", "Canudos do Vale", "Capitão", "Coqueiro Baixo", 
   "Cruzeiro do Sul", "Doutor Ricardo", "Encantado", "Forquetinha", 
@@ -11,14 +14,12 @@ export const CITIES = [
 
 export const MONTHS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
 
 export const COLORS = {
   primary: "#3b82f6", 
   secondary: "#10b981", 
-  accent: "#f59e0b", 
-  info: "#8b5cf6", 
+  accent: "#f59e0b",
   background: "#030712",
   card: "#111827"
 };
@@ -30,10 +31,10 @@ export const ShieldIcon = ({ className = "w-12 h-12" }: { className?: string }) 
     <img 
       src={imgSrc} 
       alt="Brasão 22º BPM" 
-      className={`${className} object-contain`}
-      onError={() => {
+      onError={(e) => {
+        console.error('Erro ao carregar a imagem:', imgSrc, e);
         // Fallback para um ícone SVG se a imagem não carregar
-        setImgSrc('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDFMMyA1djZjMCA1LjU1IDMuODQgMTAuNzQgOSAxMiA1LjE2LTEuMjYgOS02LjQ1IDktMTJWNWwtOS00em0wIDMuOThoNS41OEwxMiAxNS4xOCA2LjQyIDQuOThIMTJ2LS4wMnoiLz48L3N2Zz4=');
+        setImgSrc('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDFMMyA1djZjMCA1LjU1IDMuODQgMTAuNzQgOSAxMiA1LjE2LTEuMjYgOS02LjQ1IDktMTJWNWwtOS00em0wIDMuOWh2MS4wOEwxNS44MiAxOUgxM3YyaC0ydi0ySDguMTdMMTIgNi43N1Y0Ljl6Ii8+PC9zdmc+');
       }}
     />
   );
