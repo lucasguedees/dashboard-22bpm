@@ -26,7 +26,7 @@ export const COLORS = {
 
 export const ShieldIcon = ({ className = "w-12 h-12" }: { className?: string }) => {
   // Usando caminho absoluto para a imagem
-  const [imgSrc, setImgSrc] = React.useState('https://dashboard-22bpm.vercel.app/brasao.png');
+  const [imgSrc, setImgSrc] = React.useState('https://dashboard-22bpm.vercel.app/public/brasao.png');
   
   return (
     <img 
@@ -37,7 +37,7 @@ export const ShieldIcon = ({ className = "w-12 h-12" }: { className?: string }) 
         console.error('Erro ao carregar a imagem:', imgSrc, e);
         // Fallback para um caminho relativo
         if (imgSrc.startsWith('http')) {
-          setImgSrc('/brasao.png');
+          setImgSrc('public/brasao.png');
         } else {
           // Fallback para um ícone SVG se a imagem não carregar
           setImgSrc('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDFMMyA1djZjMCA1LjU1IDMuODQgMTAuNzQgOSAxMiA1LjE2LTEuMjYgOS02LjQ1IDktMTJWNWwtOS00em0wIDMuOWh2MS4wOEwxNS44MiAxOUgxM3YyaC0ydi0ySDguMTdMMTIgNi43N1Y0Ljl6Ii8+PC9zdmc+');
