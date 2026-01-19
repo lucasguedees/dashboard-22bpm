@@ -24,18 +24,20 @@ export const COLORS = {
   card: "#111827"
 };
 
-export const ShieldIcon = ({ className = "w-12 h-12" }: { className?: string }) => {
+export const ShieldIcon = ({ className = "w-40 h-auto" }: { className?: string }) => {
   return (
-    <img 
-      src="/brasao.png" 
-      alt="Brasão 22º BPM" 
-      className={className}
-      onError={(e) => {
+    <div className={`${className} flex items-center justify-center`}>
+      <img 
+        src="/brasao.png" 
+        alt="Brasão 22º BPM" 
+        className="max-w-full max-h-full object-contain"
+        onError={(e) => {
         console.error('Erro ao carregar a imagem do brasão');
         // Fallback para um ícone SVG se a imagem não carregar
         const target = e.target as HTMLImageElement;
         target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDFMMyA1djZjMCA1LjU1IDMuODQgMTAuNzQgOSAxMiA1LjE2LTEuMjYgOS02LjQ1IDktMTJWNWwtOS00em0wIDMuOWh2MS4wOEwxNS44MiAxOUgxM3YyaC0ydi0ySDguMTdMMTIgNi43N1Y0Ljl6Ii8+PC9zdmc+';
-      }}
-    />
+        }}
+      />
+    </div>
   );
 };
