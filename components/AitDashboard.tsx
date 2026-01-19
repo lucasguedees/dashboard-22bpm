@@ -6,7 +6,6 @@ import {
 } from 'recharts';
 import { CITIES, MONTHS } from '../constants.tsx';
 import { TrafficInfraction } from '../types.ts';
-import AitInsights from './AitInsights.tsx';
 
 interface ExpandedChartProps {
   isOpen: boolean;
@@ -592,10 +591,6 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
                   </table>
               </div>
             )}
-          </div>
-
-          <div className="no-export">
-            <AitInsights data={data} selectedCities={selectedCities} />
           </div>
         </div>
       )}

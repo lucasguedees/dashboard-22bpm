@@ -26,8 +26,14 @@ export const COLORS = {
 
 export const ShieldIcon = ({ className = "w-12 h-12" }: { className?: string }) => (
   <img 
-    src="/image/brasao.png" 
+    src="/brasao.png" 
     alt="Brasão 22º BPM" 
     className={`${className} object-contain`}
+    onError={(e) => {
+      // Fallback em caso de erro no carregamento
+      const target = e.target as HTMLImageElement;
+      target.onerror = null; // Previne loop de erro
+      target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDFMMyA1djZjMCA1LjU1IDMuODQgMTAuNzQgOSAxMiA1LjE2LTEuMjYgOS02LjQ1IDktMTJWNWwtOS00em0wIDMuOThoNS41OEwxMiAxNS4xOCA2LjQyIDQuOThIMTJ2LS4wMnoiLz48L3N2Zz4=';
+    }}
   />
 );
