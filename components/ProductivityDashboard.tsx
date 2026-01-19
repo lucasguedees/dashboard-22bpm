@@ -13,20 +13,87 @@ interface ProductivityDashboardProps {
   onEdit?: (item: ProductivityRecord) => void;
 }
 
+const ChartContainer: React.FC<{ 
+  title: string; 
+  children: React.ReactNode;
+  className?: string;
+  action?: React.ReactNode;
+}> = ({ title, children, className = '', action }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className={`bg-gray-900 p-6 rounded-3xl border border-gray-800 shadow-xl ${className}`}>
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-lg font-bold text-white">{title}</h3>
+        <div className="flex items-center gap-2">
+          {action}
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="text-gray-400 hover:text-blue-500 transition-colors p-1"
+            aria-label={`Expandir gráfico: ${title}`}
+            title="Expandir gráfico"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div className="relative">
+        {children}
+      </div>
+      
+      {/* Modal de gráfico expandido */}
+      {isExpanded && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setIsExpanded(false)}>
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 w-full max-w-6xl h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-gray-800">
+              <h3 className="text-2xl font-bold text-white">{title}</h3>
+              <button 
+                onClick={() => setIsExpanded(false)}
+                className="text-gray-400 hover:text-white p-2 -mr-2"
+                aria-label="Fechar"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 p-6">
+              <div className="h-[calc(90vh-120px)]">
+                {children}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isAdmin, onDelete, onEdit }) => {
   const currentYear = new Date().getFullYear().toString();
   const [selectedCities, setSelectedCities] = useState<string[]>([CITIES[0]]);
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(true);
 
-  // Filtros de período individuais para cada gráfico (formato: "ano-mês" ou "ano")
-  const [periodProc, setPeriodProc] = useState<string>('latest');
-  const [periodPrev, setPeriodPrev] = useState<string>('latest');
-  const [periodRepr, setPeriodRepr] = useState<string>('latest');
+  // Filtros de ano e mês para cada gráfico
+  const [yearFilterProc, setYearFilterProc] = useState<string>('all');
+  const [monthFilterProc, setMonthFilterProc] = useState<string>('all');
+  const [yearFilterPrev, setYearFilterPrev] = useState<string>('all');
+  const [monthFilterPrev, setMonthFilterPrev] = useState<string>('all');
+  const [yearFilterRepr, setYearFilterRepr] = useState<string>('all');
+  const [monthFilterRepr, setMonthFilterRepr] = useState<string>('all');
 
   // Filtro de dados base para a tabela e resumo dinâmico
   const filteredData = useMemo(() => {
     return data.filter(d => selectedCities.includes(d.city) && d.year.toString() === selectedYear);
   }, [data, selectedCities, selectedYear]);
+
+  // Estados para controle do ano em cada gráfico
+  const [yearProc, setYearProc] = useState(selectedYear);
+  const [yearPrev, setYearPrev] = useState(selectedYear);
+  const [yearRepr, setYearRepr] = useState(selectedYear);
 
   // Totais apenas para as cidades selecionadas no ano selecionado
   const selectedTotals = useMemo(() => {
@@ -43,16 +110,66 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
     };
   }, [filteredData]);
 
-  // Lista de períodos únicos disponíveis nos dados (para os menus dos gráficos)
-  const availablePeriods = useMemo(() => {
-    const periods = data.map(d => ({
-      id: `${d.year}-${d.month}`,
-      label: `${MONTHS[d.month]} de ${d.year}`,
-      sortVal: Number(d.year) * 12 + Number(d.month)
+  // Lista de anos e meses disponíveis para os filtros
+  const availableYears = useMemo(() => {
+    const years = Array.from(new Set(data.map(d => d.year))).sort((a, b) => b - a);
+    return years.map(year => ({
+      value: year.toString(),
+      label: year.toString()
     }));
-    const unique = Array.from(new Map(periods.map(p => [p.id, p])).values());
-    return unique.sort((a: any, b: any) => b.sortVal - a.sortVal);
   }, [data]);
+
+  const availableMonths = useMemo(() => {
+    return [
+      { value: 'all', label: 'Todos os meses' },
+      ...Array.from({ length: 12 }, (_, i) => ({
+        value: (i + 1).toString(),
+        label: MONTHS[i] // MONTHS is 0-indexed, so we use i instead of i+1
+      }))
+    ];
+  }, []);
+
+  // Função para filtrar dados por ano e mês
+  const filterDataByYearMonth = (data: any[], year: string, month: string) => {
+    return data.filter(d => {
+      const yearMatch = year === 'all' || d.year.toString() === year;
+      const monthMatch = month === 'all' || d.month.toString() === month;
+      return yearMatch && monthMatch;
+    });
+  };
+
+  // Obter dados para o gráfico baseado nos filtros
+  const getChartData = (yearFilter: string, monthFilter: string) => {
+    let filteredData = [...data];
+    
+    // Aplicar filtros de ano e mês
+    filteredData = filterDataByYearMonth(filteredData, yearFilter, monthFilter);
+    
+    // Se não houver dados, retornar array vazio
+    if (filteredData.length === 0) return [];
+    
+    // Agrupar por cidade
+    const cityData = selectedCities.map(city => {
+      const cityRecords = filteredData.filter(d => d.city === city);
+      if (cityRecords.length === 0) return null;
+      
+      // Calcular totais para a cidade
+      return {
+        name: city,
+        BA: cityRecords.reduce((sum, d) => sum + (d.ba || 0), 0),
+        COP: cityRecords.reduce((sum, d) => sum + (d.cop || 0), 0),
+        TC: cityRecords.reduce((sum, d) => sum + (d.tc || 0), 0),
+        Prisões: cityRecords.reduce((sum, d) => sum + (d.arrests || 0), 0),
+        Armas: cityRecords.reduce((sum, d) => sum + (d.weapons || 0), 0),
+        Drogas: parseFloat(cityRecords.reduce((sum, d) => sum + (d.drugsKg || 0), 0).toFixed(1)),
+        Abordagens: cityRecords.reduce((sum, d) => sum + (d.peopleApproached || 0), 0),
+        'Veículos': cityRecords.reduce((sum, d) => sum + (d.vehiclesInspected || 0), 0),
+        Foragidos: cityRecords.reduce((sum, d) => sum + (d.fugitives || 0), 0)
+      };
+    }).filter(Boolean);
+    
+    return cityData;
+  };
 
   const battalionTotals = useMemo(() => {
     const yearData = data.filter(d => d.year.toString() === selectedYear);
@@ -69,38 +186,42 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
     };
   }, [data, selectedYear]);
 
-  // Função para processar dados de um gráfico baseado no período selecionado
-  const getChartDataForPeriod = (periodKey: string) => {
-    let targetYear: number, targetMonth: number;
-
-    if (periodKey === 'latest' && data.length > 0) {
-      const latest = [...data].sort((a, b) => (b.year * 12 + b.month) - (a.year * 12 + a.month))[0];
-      targetYear = latest.year;
-      targetMonth = latest.month;
-    } else if (periodKey !== 'latest') {
-      const [y, m] = periodKey.split('-').map(Number);
-      targetYear = y;
-      targetMonth = m;
-    } else {
-      return [];
-    }
-
-    return selectedCities.map(city => {
-      const record = data.find(d => d.city === city && d.year === targetYear && d.month === targetMonth);
-      return {
-        name: city,
-        BA: record?.ba || 0,
-        COP: record?.cop || 0,
-        TC: record?.tc || 0,
-        Prisões: record?.arrests || 0,
-        Armas: record?.weapons || 0,
-        Drogas: parseFloat((record?.drugsKg || 0).toFixed(1)),
-        Abordagens: record?.peopleApproached || 0,
-        Veículos: record?.vehiclesInspected || 0,
-        Foragidos: record?.fugitives || 0,
-      };
-    });
-  };
+  // Função para renderizar os filtros de ano e mês
+  const renderYearMonthFilters = (
+    yearValue: string,
+    onYearChange: (value: string) => void,
+    monthValue: string,
+    onMonthChange: (value: string) => void
+  ) => (
+    <div className="flex gap-2">
+      <select
+        value={yearValue}
+        onChange={(e) => onYearChange(e.target.value)}
+        className="bg-gray-800 text-[10px] font-bold text-gray-300 border border-gray-700 rounded-lg px-3 py-2 outline-none cursor-pointer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <option value="all">Todos os anos</option>
+        {availableYears.map((year) => (
+          <option key={year.value} value={year.value}>
+            {year.label}
+          </option>
+        ))}
+      </select>
+      <select
+        value={monthValue}
+        onChange={(e) => onMonthChange(e.target.value)}
+        className="bg-gray-800 text-[10px] font-bold text-gray-300 border border-gray-700 rounded-lg px-3 py-2 outline-none cursor-pointer"
+        onClick={(e) => e.stopPropagation()}
+        disabled={yearValue === 'all'}
+      >
+        {availableMonths.map((month) => (
+          <option key={month.value} value={month.value}>
+            {month.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
   const toggleCity = (city: string) => {
     setSelectedCities(prev => prev.includes(city) ? (prev.length > 1 ? prev.filter(c => c !== city) : prev) : [...prev, city]);
@@ -196,21 +317,20 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
       {data.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Gráfico 1: Procedimentos Administrativos */}
-          <div className="bg-gray-900 p-6 rounded-3xl border border-gray-800 shadow-xl relative">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-              <h3 className="text-sm font-black text-white uppercase tracking-wider">Procedimentos Administrativos</h3>
-              <select 
-                value={periodProc} 
-                onChange={e => setPeriodProc(e.target.value)}
-                className="bg-gray-800 text-[10px] font-bold text-gray-300 border border-gray-700 rounded-lg px-3 py-2 outline-none uppercase cursor-pointer max-w-[200px]"
-              >
-                <option value="latest">Mês mais recente</option>
-                {availablePeriods.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </select>
-            </div>
+          <ChartContainer 
+            title="Procedimentos Administrativos"
+            action={
+              renderYearMonthFilters(
+                yearFilterProc,
+                setYearFilterProc,
+                monthFilterProc,
+                setMonthFilterProc
+              )
+            }
+          >
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={getChartDataForPeriod(periodProc)} margin={{ top: 20 }}>
+                <BarChart data={getChartData(yearFilterProc, monthFilterProc)} margin={{ top: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
                   <XAxis dataKey="name" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.25)]} />
@@ -228,24 +348,23 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </ChartContainer>
 
           {/* Gráfico 2: Atividade Preventiva */}
-          <div className="bg-gray-900 p-6 rounded-3xl border border-gray-800 shadow-xl relative">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-              <h3 className="text-sm font-black text-white uppercase tracking-wider">Atividades Preventivas</h3>
-              <select 
-                value={periodPrev} 
-                onChange={e => setPeriodPrev(e.target.value)}
-                className="bg-gray-800 text-[10px] font-bold text-gray-300 border border-gray-700 rounded-lg px-3 py-2 outline-none uppercase cursor-pointer max-w-[200px]"
-              >
-                <option value="latest">Mês mais recente</option>
-                {availablePeriods.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </select>
-            </div>
+          <ChartContainer 
+            title="Atividades Preventivas"
+            action={
+              renderYearMonthFilters(
+                yearFilterPrev,
+                setYearFilterPrev,
+                monthFilterPrev,
+                setMonthFilterPrev
+              )
+            }
+          >
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={getChartDataForPeriod(periodPrev)} margin={{ top: 20 }}>
+                <BarChart data={getChartData(yearFilterPrev, monthFilterPrev)} margin={{ top: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
                   <XAxis dataKey="name" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.25)]} />
@@ -263,24 +382,23 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </ChartContainer>
 
           {/* Gráfico 3: Repressão e Apreensões */}
-          <div className="bg-gray-900 p-6 rounded-3xl border border-gray-800 shadow-xl relative">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-              <h3 className="text-sm font-black text-white uppercase tracking-wider">Repressão e Apreensões</h3>
-              <select 
-                value={periodRepr} 
-                onChange={e => setPeriodRepr(e.target.value)}
-                className="bg-gray-800 text-[10px] font-bold text-gray-300 border border-gray-700 rounded-lg px-3 py-2 outline-none uppercase cursor-pointer max-w-[200px]"
-              >
-                <option value="latest">Mês mais recente</option>
-                {availablePeriods.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </select>
-            </div>
+          <ChartContainer 
+            title="Repressão e Apreensões"
+            action={
+              renderYearMonthFilters(
+                yearFilterRepr,
+                setYearFilterRepr,
+                monthFilterRepr,
+                setMonthFilterRepr
+              )
+            }
+          >
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={getChartDataForPeriod(periodRepr)} margin={{ top: 20 }}>
+                <BarChart data={getChartData(yearFilterRepr, monthFilterRepr)} margin={{ top: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
                   <XAxis dataKey="name" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.25)]} />
@@ -298,13 +416,29 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </ChartContainer>
 
           <div className="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden shadow-xl no-export flex flex-col">
-            <div className="p-6 border-b border-gray-800">
-                <h3 className="text-lg font-bold text-white">Detalhamento por Lançamento Individual</h3>
+            <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-white">Detalhamento por Lançamento Individual</h3>
+              <button 
+                onClick={() => setIsDetailsExpanded(!isDetailsExpanded)}
+                className="text-gray-400 hover:text-white transition-colors p-1"
+                aria-label={isDetailsExpanded ? "Recolher detalhamento" : "Expandir detalhamento"}
+                title={isDetailsExpanded ? "Recolher" : "Expandir"}
+              >
+                {isDetailsExpanded ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </button>
             </div>
-            <div className="overflow-x-auto flex-1">
+            <div className={`overflow-x-auto flex-1 transition-all duration-300 ${isDetailsExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
                 <table className="w-full text-left">
                     <thead className="bg-gray-800/50 text-gray-400 text-[10px] uppercase tracking-widest">
                         <tr>
