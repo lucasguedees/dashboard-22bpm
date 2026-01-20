@@ -116,10 +116,12 @@ const App: React.FC = () => {
   const deleteInfraction = useCallback(async (id: string) => {
     if (!window.confirm("CONFIRMA EXCLUSÃO DEFINITIVA?\nOs gráficos e relatórios serão atualizados imediatamente.")) return;
 
+    // Get the item being deleted to restore if needed
+    const itemToDelete = infractions.find(item => item.id === id);
+    if (!itemToDelete) return;
+
     // Optimistic UI update first
-    let previous: TrafficInfraction[] = [];
     setInfractions(prev => {
-      previous = prev;
       const updated = prev.filter(item => item.id !== id);
       if (!supabaseReady) {
         localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
@@ -130,14 +132,26 @@ const App: React.FC = () => {
     if (supabaseReady) {
       try {
         await deleteInfractionById(id);
-        // Background refresh (non-blocking UI)
-        fetchInfractions().then(setInfractions).catch(() => {});
+        // Force refresh the data from the server
+        const refreshed = await fetchInfractions();
+        setInfractions(refreshed);
       } catch (e) {
+        console.error('Error deleting infraction:', e);
         alert('Falha ao excluir no servidor. A lista será restaurada.');
-        // Rollback
-        setInfractions(previous);
+        // Rollback by adding the item back
+        setInfractions(prev => {
+          const updated = [...prev, itemToDelete];
+          localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
+          return updated;
+        });
       }
-      return;
+    } else {
+      // For local storage, force a state update to ensure UI refreshes
+      setInfractions(prev => {
+        const updated = prev.filter(item => item.id !== id);
+        localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
+        return updated;
+      });
     }
   }, []);
 
@@ -183,22 +197,45 @@ const App: React.FC = () => {
 
   const deleteProductivity = useCallback(async (id: string) => {
     if (!window.confirm("CONFIRMA EXCLUSÃO DEFINITIVA DO REGISTRO DE PRODUTIVIDADE?")) return;
+    
+    // Get the item being deleted to restore if needed
+    const itemToDelete = productivity.find(item => item.id === id);
+    if (!itemToDelete) return;
+
+    // Optimistic UI update first
+    setProductivity(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      if (!supabaseReady) {
+        localStorage.setItem('22bpm_productivity', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
     if (supabaseReady) {
       try {
         await deleteProductivityById(id);
+        // Force refresh the data from the server
         const refreshed = await fetchProductivity();
         setProductivity(refreshed);
       } catch (e) {
-        alert('Falha ao excluir no servidor.');
+        console.error('Error deleting productivity record:', e);
+        alert('Falha ao excluir no servidor. O registro será restaurado.');
+        // Rollback by adding the item back
+        setProductivity(prev => {
+          const updated = [...prev, itemToDelete];
+          localStorage.setItem('22bpm_productivity', JSON.stringify(updated));
+          return updated;
+        });
       }
-      return;
+    } else {
+      // For local storage, force a state update to ensure UI refreshes
+      setProductivity(prev => {
+        const updated = prev.filter(item => item.id !== id);
+        localStorage.setItem('22bpm_productivity', JSON.stringify(updated));
+        return updated;
+      });
     }
-    setProductivity(prev => {
-      const updated = prev.filter(item => item.id !== id);
-      localStorage.setItem('22bpm_productivity', JSON.stringify(updated));
-      return [...updated];
-    });
-  }, []);
+  }, [productivity, supabaseReady]);
 
   const handleImportAll = (newInfractions: TrafficInfraction[], newProductivity: ProductivityRecord[], newUsers?: User[]) => {
     try {

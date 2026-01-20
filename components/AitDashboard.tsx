@@ -100,16 +100,21 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
   }, [data]);
 
   const availablePeriods = useMemo(() => {
-    const periods = data.map(d => ({
-      id: `${d.year}-${d.month}`,
-      label: `${MONTHS[d.month]} de ${d.year}`,
-      year: d.year,
-      month: d.month,
-      sortVal: Number(d.year) * 12 + Number(d.month)
-    }));
+    const periods = data.map(d => {
+      // Month is already 0-based (0-11)
+      const monthIndex = Math.max(0, Math.min(11, d.month));
+      return {
+        id: `${d.year}-${monthIndex}`, // Store 0-based month in ID
+        label: `${MONTHS[monthIndex]} de ${d.year}`,
+        year: d.year,
+        month: monthIndex, // Store 0-based month
+        sortVal: Number(d.year) * 12 + monthIndex
+      };
+    });
     
     const unique = Array.from(new Map(periods.map(p => [p.id, p])).values());
-    return unique.sort((a: {sortVal: number}, b: {sortVal: number}) => b.sortVal - a.sortVal);
+    // Sort in ascending order by year and month (oldest first)
+    return unique.sort((a: {sortVal: number}, b: {sortVal: number}) => a.sortVal - b.sortVal);
   }, [data]);
   
   const availableYearsForBarChart = useMemo(() => {
@@ -139,7 +144,9 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
     
     return uniquePeriods.map(period => {
       const [year, month] = (period as string).split('-').map(Number);
-      const monthName = MONTHS[month] || ''; // Garante que temos uma string vazia se o mês for inválido
+      // Ajusta o mês para 0-based para acessar o array MONTHS
+      const monthIndex = month - 1;
+      const monthName = MONTHS[monthIndex] || '';
       const entry: any = {
         periodLabel: monthName ? `${monthName.substring(0, 3)}/${String(year).substring(2)}` : `${month}/${String(year).substring(2)}`,
         fullName: monthName ? `${monthName} de ${year}` : `Mês ${month} de ${year}`
@@ -157,36 +164,35 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
     
     let targetYear: number, targetMonth: number;
 
-    if (barYearFilter !== 'all') {
-      targetYear = parseInt(barYearFilter);
-      // Se tiver um mês específico selecionado, usa ele, senão pega o mais recente do ano
-      if (barPeriodFilter !== 'latest' && barPeriodFilter.includes('-')) {
-        const [y, m] = barPeriodFilter.split('-').map(Number);
-        if (y === targetYear) {
-          targetMonth = m;
-        } else {
-          const monthsInYear = data
-            .filter(d => d.year === targetYear)
-            .map(d => d.month);
-          targetMonth = Math.max(...monthsInYear);
-        }
-      } else {
-        const monthsInYear = data
-          .filter(d => d.year === targetYear)
-          .map(d => d.month);
-        targetMonth = monthsInYear.length > 0 ? Math.max(...monthsInYear) : 0;
-      }
-    } else if (barPeriodFilter === 'latest') {
+    if (barPeriodFilter === 'latest') {
+      // Pega o registro mais recente
       const latest = [...data].sort((a, b) => (b.year * 12 + b.month) - (a.year * 12 + a.month))[0];
       targetYear = latest.year;
       targetMonth = latest.month;
-    } else {
+    } else if (barPeriodFilter.includes('-')) {
+      // Se um período específico foi selecionado
       const [y, m] = barPeriodFilter.split('-').map(Number);
       targetYear = y;
       targetMonth = m;
+    } else if (barYearFilter !== 'all') {
+      // Se apenas o ano foi selecionado, pega o mês mais recente daquele ano
+      targetYear = parseInt(barYearFilter);
+      const monthsInYear = data
+        .filter(d => d.year === targetYear)
+        .map(d => d.month);
+      targetMonth = monthsInYear.length > 0 ? Math.max(...monthsInYear) : 1;
+    } else {
+      // Se nenhum filtro específico, pega o mais recente de todos
+      const latest = [...data].sort((a, b) => (b.year * 12 + b.month) - (a.year * 12 + a.month))[0];
+      targetYear = latest.year;
+      targetMonth = latest.month;
     }
 
+    // Month is already 0-based (0-11)
+    const displayMonth = Math.max(0, Math.min(11, targetMonth));
+    
     return selectedCities.map(city => {
+      // Busca o registro com o mês exato
       const record = data.find(d => d.city === city && d.year === targetYear && d.month === targetMonth);
       return {
         name: city,
@@ -195,7 +201,7 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
         Caminhões: record?.trucks || 0,
         Outros: record?.others || 0,
         total: record?.total || 0,
-        periodInfo: `${MONTHS[targetMonth]} de ${targetYear}`
+        periodInfo: `${MONTHS[displayMonth]} de ${targetYear}`
       };
     });
   }, [data, selectedCities, barPeriodFilter]);

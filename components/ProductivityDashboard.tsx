@@ -120,45 +120,96 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
   }, [data]);
 
   const availableMonths = useMemo(() => {
-    return [
-      { value: 'all', label: 'Todos os meses' },
-      ...Array.from({ length: 12 }, (_, i) => ({
-        value: (i + 1).toString(),
-        label: MONTHS[i] // MONTHS is 0-indexed, so we use i instead of i+1
-      }))
+    // Always show all months as options
+    const monthOptions = [
+      { value: 'all', label: 'Todos os meses' }
     ];
+    
+    // Add all 12 months (0-based index)
+    for (let i = 0; i < 12; i++) {
+      monthOptions.push({
+        value: i.toString(),
+        label: MONTHS[i]
+      });
+    }
+    
+    return monthOptions;
   }, []);
+  
+  // Get months that actually have data for the selected year and cities
+  const monthsWithData = useMemo(() => {
+    const months = new Set<number>();
+    const targetYear = selectedYear === 'all' ? null : parseInt(selectedYear, 10);
+    
+    data.forEach(d => {
+      const yearMatch = targetYear === null || d.year === targetYear;
+      const cityMatch = selectedCities.length === 0 || selectedCities.includes(d.city);
+      
+      if (yearMatch && cityMatch) {
+        months.add(d.month);
+      }
+    });
+    
+    return months;
+  }, [data, selectedYear, selectedCities]);
 
   // Função para filtrar dados por ano e mês
   const filterDataByYearMonth = (data: any[], year: string, month: string) => {
-    return data.filter(d => {
-      const yearMatch = year === 'all' || d.year.toString() === year;
-      const monthMatch = month === 'all' || d.month.toString() === month;
-      return yearMatch && monthMatch;
-    });
+    console.log('Filtering data with:', { year, month });
+    
+    // Filtra por ano primeiro
+    let result = data;
+    
+    if (year !== 'all') {
+      const targetYear = parseInt(year, 10);
+      result = result.filter(d => d.year === targetYear);
+    }
+    
+    // Se não for 'todos os meses', filtra pelo mês específico
+    if (month !== 'all') {
+      const targetMonth = parseInt(month, 10);
+      // Garante que estamos comparando números com números
+      result = result.filter(d => d.month === targetMonth);
+    }
+    
+    console.log('Filtered data:', result);
+    return result;
   };
 
   // Obter dados para o gráfico baseado nos filtros
   const getChartData = (yearFilter: string | undefined, monthFilter: string | undefined) => {
     if (!yearFilter || !monthFilter) return [];
     
+    console.log('Getting chart data with filters:', { yearFilter, monthFilter });
+    
+    // Fazer uma cópia dos dados originais
     let filteredData = [...(data || [])];
     
     // Aplicar filtros de ano e mês
     filteredData = filterDataByYearMonth(filteredData, yearFilter, monthFilter);
     
     // Se não houver dados ou cidades selecionadas, retornar array vazio
-    if (filteredData.length === 0 || !selectedCities || selectedCities.length === 0) return [];
+    if (filteredData.length === 0 || !selectedCities || selectedCities.length === 0) {
+      console.log('No data found for the selected filters');
+      return [];
+    }
     
     // Agrupar por cidade
     const cityData = selectedCities.map(city => {
       if (!city) return null;
       
+      // Filtra os registros da cidade
       const cityRecords = filteredData.filter(d => d && d.city === city);
-      if (cityRecords.length === 0) return null;
+      
+      if (cityRecords.length === 0) {
+        console.log(`No records found for city: ${city}`);
+        return null;
+      }
+      
+      console.log(`Processing ${cityRecords.length} records for city: ${city}`, cityRecords);
       
       // Calcular totais para a cidade com verificações de segurança
-      return {
+      const result = {
         name: city,
         BA: cityRecords.reduce((sum, d) => sum + (d?.ba || 0), 0),
         COP: cityRecords.reduce((sum, d) => sum + (d?.cop || 0), 0),
@@ -170,8 +221,12 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
         'Veículos': cityRecords.reduce((sum, d) => sum + (d?.vehiclesInspected || 0), 0),
         Foragidos: cityRecords.reduce((sum, d) => sum + (d?.fugitives || 0), 0)
       };
+      
+      console.log(`Result for ${city}:`, result);
+      return result;
     }).filter(Boolean);
     
+    console.log('Final chart data:', cityData);
     return cityData;
   };
 
@@ -218,11 +273,21 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
         onClick={(e) => e.stopPropagation()}
         disabled={yearValue === 'all'}
       >
-        {availableMonths.map((month) => (
-          <option key={month.value} value={month.value}>
-            {month.label}
-          </option>
-        ))}
+        {availableMonths.map((month) => {
+          const monthNum = parseInt(month.value, 10);
+          const hasData = month.value === 'all' || monthsWithData.has(monthNum);
+          
+          return (
+            <option 
+              key={month.value} 
+              value={month.value}
+              disabled={!hasData}
+              className={!hasData ? 'text-gray-500' : ''}
+            >
+              {month.label} {!hasData && month.value !== 'all' ? '(sem dados)' : ''}
+            </option>
+          );
+        })}
       </select>
     </div>
   );
@@ -459,7 +524,7 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
                           <tr key={row.id} className="hover:bg-gray-800/30 transition-colors">
                               <td className="px-6 py-4">
                                 <p className="font-bold text-white text-sm">{row.city}</p>
-                                <p className="text-[10px] text-gray-500 uppercase font-black">{MONTHS[row.month]} {row.year}</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-black">{MONTHS[row.month-1]} {row.year}</p>
                               </td>
                               <td className="px-6 py-4 text-center text-sm">{row.ba}</td>
                               <td className="px-6 py-4 text-center font-bold text-emerald-400 text-sm">{row.arrests}</td>
