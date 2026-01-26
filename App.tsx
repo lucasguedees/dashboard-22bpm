@@ -34,8 +34,10 @@ const App: React.FC = () => {
           localStorage.setItem('22bpm_users_list', JSON.stringify(defaultUsers));
         }
 
-        const savedUser = localStorage.getItem('22bpm_user');
-        if (savedUser) setUser(JSON.parse(savedUser));
+        // Auto-login como admin para pular tela de login
+        const adminUser: User = { id: '1', username: 'admin', role: 'ADMIN', rank: 'Ten Cel', password: '22' };
+        setUser(adminUser);
+        localStorage.setItem('22bpm_user', JSON.stringify(adminUser));
 
         if (supabaseReady) {
           // Fetch from Supabase
