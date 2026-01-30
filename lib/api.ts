@@ -57,8 +57,47 @@ export async function getOrCreateAppUser(authUserId: string, usernameFallback?: 
     }
   }
 
-  // Create minimal profile if not exists
-  const username = usernameFallback || (email ? email.split('@')[0] : `user_${authUserId.slice(0, 8)}`);
+  // Create minimal profile if not exists with retry for duplicate username
+  let baseUsername = usernameFallback || (email ? email.split('@')[0] : `user_${authUserId.slice(0, 8)}`);
+  let username = baseUsername;
+  let retryCount = 0;
+  const maxRetries = 10;
+
+  while (retryCount < maxRetries) {
+    const { data: created, error: createErr } = await supabase
+      .from('app_users')
+      .insert({
+        auth_user_id: authUserId,
+        username,
+        email,
+        role: 'USER',
+        rank: 'Sd',
+      })
+      .select('id, username, role, rank')
+      .single();
+    
+    if (!createErr && created) {
+      return {
+        id: created.id,
+        username: created.username,
+        role: created.role,
+        rank: created.rank,
+      } as User;
+    }
+    
+    // If error is duplicate username, try with suffix
+    if (createErr?.code === '23505' && createErr?.message?.includes('username')) {
+      retryCount++;
+      username = `${baseUsername}_${retryCount}`;
+      continue;
+    }
+    
+    // If it's a different error, throw it
+    throw createErr;
+  }
+  
+  // If we've tried all retries, use authUserId suffix
+  username = `${baseUsername}_${authUserId.slice(0, 8)}`;
   const { data: created, error: createErr } = await supabase
     .from('app_users')
     .insert({
@@ -70,6 +109,7 @@ export async function getOrCreateAppUser(authUserId: string, usernameFallback?: 
     })
     .select('id, username, role, rank')
     .single();
+  
   if (createErr) throw createErr;
   return {
     id: created!.id,

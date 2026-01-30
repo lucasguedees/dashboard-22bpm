@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { supabaseReady, listAppUsers, createAppUser, deleteAppUser } from '../lib/api';
+import { supabaseReady, listAppUsers, createAppUser, deleteAppUser, updateAppUser } from '../lib/api';
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingUser, setEditingUser] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -85,6 +86,67 @@ const UserManagement: React.FC = () => {
     localStorage.setItem('22bpm_users_list', JSON.stringify(updated));
   };
 
+  const startEditUser = (user: User) => {
+    setEditingUser(user.id);
+    setFormData({
+      username: user.username,
+      email: (user as any).email || '',
+      rank: user.rank,
+      role: user.role,
+      password: ''
+    });
+    setIsAdding(false);
+  };
+
+  const cancelEdit = () => {
+    setEditingUser(null);
+    setFormData({
+      username: '',
+      email: '',
+      rank: 'Sd',
+      role: 'USER',
+      password: ''
+    });
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    if (supabaseReady) {
+      try {
+        const updated = await updateAppUser(editingUser, {
+          username: formData.username,
+          email: formData.email || null,
+          role: formData.role,
+          rank: formData.rank
+        });
+        
+        setUsers(prev => prev.map(u => 
+          u.id === editingUser 
+            ? { ...u, username: updated.username, role: updated.role, rank: updated.rank }
+            : u
+        ));
+        
+        cancelEdit();
+        return;
+      } catch (err) {
+        alert('Falha ao atualizar usuário no Supabase. Verifique permissões RLS.');
+        return;
+      }
+    }
+    
+    // Fallback localStorage
+    const updated = users.map(u => 
+      u.id === editingUser 
+        ? { ...u, username: formData.username, role: formData.role, rank: formData.rank }
+        : u
+    );
+    setUsers(updated);
+    localStorage.setItem('22bpm_users_list', JSON.stringify(updated));
+    cancelEdit();
+  };
+
   return (
     <div className="animate-fadeIn">
       <div className="flex items-center justify-between mb-8">
@@ -93,20 +155,37 @@ const UserManagement: React.FC = () => {
           <p className="text-gray-400">Controle de acessos e permissões do SIOP.</p>
         </div>
         <button 
-          onClick={() => setIsAdding(!isAdding)}
+          onClick={() => {
+            if (editingUser) {
+              cancelEdit();
+            } else {
+              setIsAdding(!isAdding);
+            }
+          }}
           className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-900/20 active:scale-95 flex items-center space-x-2"
         >
-          {isAdding ? <span>Cancelar</span> : (
+          {editingUser ? (
             <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              <span>Cancelar Edição</span>
+            </>
+          ) : isAdding ? (
+            <span>Cancelar</span>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+              </svg>
               <span>Novo Usuário</span>
             </>
           )}
         </button>
       </div>
 
-      {isAdding && (
-        <form onSubmit={handleSave} className="bg-gray-900 border border-gray-800 p-6 rounded-3xl mb-8 shadow-2xl grid grid-cols-1 md:grid-cols-4 gap-4 animate-slideDown">
+      {(isAdding || editingUser) && (
+        <form onSubmit={editingUser ? handleUpdate : handleSave} className="bg-gray-900 border border-gray-800 p-6 rounded-3xl mb-8 shadow-2xl grid grid-cols-1 md:grid-cols-4 gap-4 animate-slideDown">
           <div className="flex flex-col">
             <label className="text-xs text-gray-500 font-bold uppercase mb-2">Usuário</label>
             <input 
@@ -115,7 +194,7 @@ const UserManagement: React.FC = () => {
               value={formData.username}
               onChange={e => setFormData({...formData, username: e.target.value})}
               className="bg-gray-800 border border-gray-700 text-white rounded-xl p-3 outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="ex: p3.sobrenome"
+              placeholder={editingUser ? "Nome do usuário" : "ex: p3.sobrenome"}
             />
           </div>
           <div className="flex flex-col">
@@ -150,14 +229,32 @@ const UserManagement: React.FC = () => {
               <option value="USER">USUÁRIO (Consulta)</option>
             </select>
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 font-bold uppercase mb-2">Salvar</label>
-            <div className="flex items-center space-x-2">
-              <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 px-4 py-3 rounded-xl transition-all text-white font-bold">
-                Salvar Usuário
+          <div className="flex flex-col md:col-span-4">
+            <label className="text-xs text-gray-500 font-bold uppercase mb-2">Ações</label>
+            <div className="flex items-center space-x-4">
+              <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 px-6 py-3 rounded-xl transition-all text-white font-bold">
+                {editingUser ? 'Atualizar Usuário' : 'Salvar Usuário'}
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  if (editingUser) {
+                    cancelEdit();
+                  } else {
+                    setIsAdding(false);
+                  }
+                }}
+                className="bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-xl transition-all text-white font-bold"
+              >
+                Cancelar
               </button>
             </div>
-            <p className="text-[10px] text-gray-500 mt-2">Observação: a criação no Supabase registra o perfil. O próprio usuário deve usar a tela de login para criar sua conta (e‑mail/senha) e vincular automaticamente.</p>
+            <p className="text-[10px] text-gray-500 mt-2">
+              {editingUser 
+                ? "Edite os dados do usuário e clique em 'Atualizar Usuário' para salvar as alterações."
+                : "Observação: a criação no Supabase registra o perfil. O próprio usuário deve usar a tela de login para criar sua conta (e‑mail/senha) e vincular automaticamente."
+              }
+            </p>
           </div>
         </form>
       )}
@@ -193,14 +290,28 @@ const UserManagement: React.FC = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  {u.username !== 'comando' && (
+                  <div className="flex items-center justify-end space-x-2">
                     <button 
-                      onClick={() => deleteUser(u.id)}
-                      className="text-gray-600 hover:text-red-500 transition-colors p-2"
+                      onClick={() => startEditUser(u)}
+                      className="text-blue-500 hover:text-blue-400 transition-colors p-2"
+                      title="Editar usuário"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
                     </button>
-                  )}
+                    {u.username !== 'comando' && (
+                      <button 
+                        onClick={() => deleteUser(u.id)}
+                        className="text-gray-600 hover:text-red-500 transition-colors p-2"
+                        title="Remover usuário"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
