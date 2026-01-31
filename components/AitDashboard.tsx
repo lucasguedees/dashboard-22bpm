@@ -252,12 +252,13 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
 
   const availablePeriods = useMemo(() => {
     const periods = data.map(d => {
-      const monthIndex = Math.max(0, Math.min(11, d.month));
+      // d.month is 1-based (1-12), so subtract 1 for array indexing (0-11)
+      const monthIndex = d.month - 1;
       return {
-        id: `${d.year}-${monthIndex}`,
+        id: `${d.year}-${d.month}`,
         label: `${MONTHS[monthIndex]} de ${d.year}`,
         year: d.year,
-        month: monthIndex,
+        month: d.month,
         sortVal: Number(d.year) * 12 + monthIndex
       };
     });
@@ -293,6 +294,7 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
     
     return uniquePeriods.map(period => {
       const [year, month] = (period as string).split('-').map(Number);
+      // month is already 1-based (1-12), so use month-1 for array indexing
       const monthIndex = month - 1;
       const monthName = MONTHS[monthIndex] || '';
       const entry: any = {
@@ -332,7 +334,8 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
       targetMonth = latest.month;
     }
 
-    const displayMonth = Math.max(0, Math.min(11, targetMonth));
+    // targetMonth is 1-based (1-12), so subtract 1 for array indexing (0-11)
+    const displayMonth = targetMonth - 1;
     
     return selectedCities.map(city => {
       const record = data.find(d => d.city === city && d.year === targetYear && d.month === targetMonth);
@@ -675,7 +678,7 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
                           {tableData.map((row) => (
                             <tr key={row.id} className="hover:bg-gray-800/30 transition-colors">
                                 <td className="px-6 py-4 font-bold text-white">{row.city}</td>
-                                <td className="px-6 py-4 text-gray-400 text-sm">{MONTHS[row.month]} de {row.year}</td>
+                                <td className="px-6 py-4 text-gray-400 text-sm">{MONTHS[row.month - 1]} de {row.year}</td>
                                 <td className="px-6 py-4 text-center text-gray-300">{row.cars}</td>
                                 <td className="px-6 py-4 text-center text-gray-300">{row.motorcycles}</td>
                                 <td className="px-6 py-4 text-center text-gray-300">{row.trucks}</td>
