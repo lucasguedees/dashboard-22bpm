@@ -91,19 +91,41 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       if (registerPassword !== confirmPassword) throw new Error('As senhas não coincidem.');
       if (!registerName.trim()) throw new Error('Informe seu nome completo.');
 
-      // Criar usuário no Supabase Auth
-      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ 
+      // Verificar se usuário já existe no Supabase Auth
+      console.log('Checking if user exists in Supabase Auth...');
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ 
         email: registerEmail, 
         password: registerPassword 
       });
       
-      if (signUpErr) throw signUpErr;
-      if (!signUpData.user?.id) throw new Error('Falha ao criar conta.');
+      if (signInErr?.message.includes('Invalid login credentials')) {
+        // Usuário não existe no Auth, pode criar novo
+        console.log('User not found in Auth, creating new account...');
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ 
+          email: registerEmail, 
+          password: registerPassword 
+        });
+        
+        if (signUpErr) throw signUpErr;
+        if (!signUpData.user?.id) throw new Error('Falha ao criar conta.');
 
-      // Criar perfil em app_users
-      const profile = await createUserProfile(signUpData.user.id, registerName, registerEmail, registerRank);
+        // Criar perfil em app_users
+        const profile = await createUserProfile(signUpData.user.id, registerName, registerEmail, registerRank);
+        
+        setSuccessMessage('Conta criada com sucesso! Você já pode fazer login.');
+      } else if (!signInErr && signInData.user?.id) {
+        // Usuário existe no Auth mas não tem perfil, criar apenas o perfil
+        console.log('User exists in Auth, creating profile only...');
+        const profile = await createUserProfile(signInData.user.id, registerName, registerEmail, registerRank);
+        
+        setSuccessMessage('Perfil criado com sucesso! Você já pode fazer login.');
+        
+        // Fazer logout para limpar a sessão
+        await supabase.auth.signOut();
+      } else {
+        throw signInErr || new Error('Erro ao verificar usuário existente');
+      }
       
-      setSuccessMessage('Conta criada com sucesso! Você já pode fazer login.');
       setRegisterLoading(false);
       
       // Limpar formulário
