@@ -12,6 +12,28 @@ export interface AppUserRow {
 }
 
 // -------- App Users (profiles) --------
+export async function getAppUser(authUserId: string): Promise<User | null> {
+  if (!supabase) throw new Error('Supabase not configured');
+
+  // Try to find existing profile
+  const { data: found, error: findErr } = await supabase
+    .from('app_users')
+    .select('id, username, role, rank, email')
+    .eq('auth_user_id', authUserId)
+    .single();
+  
+  if (!findErr && found) {
+    return {
+      id: found.id,
+      username: found.username,
+      role: found.role,
+      rank: found.rank,
+    } as User;
+  }
+
+  return null; // Return null if user not found
+}
+
 export async function getOrCreateAppUser(authUserId: string, usernameFallback?: string): Promise<User> {
   if (!supabase) throw new Error('Supabase not configured');
 

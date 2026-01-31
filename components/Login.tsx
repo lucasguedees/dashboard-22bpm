@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { User } from '../types';
 import { ShieldIcon } from '../constants';
 import { supabase } from '../lib/supabase';
-import { getOrCreateAppUser } from '../lib/api';
+import { getOrCreateAppUser, getAppUser } from '../lib/api';
 
 interface LoginProps {
   onLogin: (user: User, rememberMe?: boolean) => void;
@@ -47,8 +47,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       if (signInErr) throw signInErr;
       if (!signInData.user?.id) throw new Error('Falha na autenticação.');
 
-      // Busca ou cria perfil em app_users
-      const profile = await getOrCreateAppUser(signInData.user.id, email.split('@')[0]);
+      // Busca perfil existente em app_users (não cria automaticamente)
+      const profile = await getAppUser(signInData.user.id);
+      if (!profile) {
+        throw new Error('Usuário não encontrado. Faça o cadastro primeiro.');
+      }
       onLogin(profile, rememberMe);
     } catch (err: any) {
       setError(err?.message || 'Falha na autenticação.');
