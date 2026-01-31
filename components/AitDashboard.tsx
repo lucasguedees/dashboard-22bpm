@@ -697,8 +697,14 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
                                       </button>
                                       <button 
                                         onClick={() => {
+                                          console.log('Delete button clicked for row:', row);
+                                          console.log('Row ID:', row.id);
+                                          console.log('onDelete function exists:', !!onDelete);
                                           if (row.id && onDelete) {
+                                            console.log('Calling onDelete with ID:', row.id);
                                             onDelete(row.id);
+                                          } else {
+                                            console.error('Cannot delete: missing ID or onDelete function');
                                           }
                                         }} 
                                         className="text-gray-500 hover:text-red-500 transition-colors"

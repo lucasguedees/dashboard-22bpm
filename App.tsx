@@ -133,26 +133,41 @@ const App: React.FC = () => {
   };
 
   const deleteInfraction = useCallback(async (id: string) => {
-    if (!window.confirm("CONFIRMA EXCLUSÃO DEFINITIVA?\nOs gráficos e relatórios serão atualizados imediatamente.")) return;
+    console.log('deleteInfraction called with ID:', id);
+    if (!window.confirm("CONFIRMA EXCLUSÃO DEFINITIVA?\nOs gráficos e relatórios serão atualizados imediatamente.")) {
+      console.log('User cancelled deletion');
+      return;
+    }
 
+    console.log('Finding item to delete with ID:', id);
     // Get the item being deleted to restore if needed
     const itemToDelete = infractions.find(item => item.id === id);
-    if (!itemToDelete) return;
+    if (!itemToDelete) {
+      console.error('Item not found with ID:', id);
+      return;
+    }
+    console.log('Item to delete:', itemToDelete);
 
+    console.log('supabaseReady:', supabaseReady);
     // Optimistic UI update first
     setInfractions(prev => {
       const updated = prev.filter(item => item.id !== id);
+      console.log('Optimistic update - filtered from', prev.length, 'to', updated.length, 'items');
       if (!supabaseReady) {
         localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
+        console.log('Updated localStorage (offline mode)');
       }
       return updated;
     });
 
     if (supabaseReady) {
+      console.log('Deleting from Supabase...');
       try {
         await deleteInfractionById(id);
+        console.log('Successfully deleted from Supabase');
         // Force refresh the data from the server
         const refreshed = await fetchInfractions();
+        console.log('Refreshed data from server:', refreshed.length, 'items');
         setInfractions(refreshed);
       } catch (e) {
         console.error('Error deleting infraction:', e);
@@ -165,6 +180,7 @@ const App: React.FC = () => {
         });
       }
     } else {
+      console.log('Using localStorage mode');
       // For local storage, force a state update to ensure UI refreshes
       setInfractions(prev => {
         const updated = prev.filter(item => item.id !== id);
@@ -172,7 +188,7 @@ const App: React.FC = () => {
         return updated;
       });
     }
-  }, []);
+  }, [infractions, supabaseReady]);
 
   const saveProductivity = async (data: Omit<ProductivityRecord, 'id' | 'timestamp'>) => {
     if (supabaseReady) {
