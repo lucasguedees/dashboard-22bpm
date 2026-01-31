@@ -34,25 +34,16 @@ const App: React.FC = () => {
           localStorage.setItem('22bpm_users_list', JSON.stringify(defaultUsers));
         }
 
-        // Auto-login como admin para pular tela de login
-        const adminUser: User = { id: '1', username: 'admin', role: 'ADMIN', rank: 'Ten Cel', password: '22' };
-        setUser(adminUser);
-        localStorage.setItem('22bpm_user', JSON.stringify(adminUser));
-
-        if (supabaseReady) {
-          // Fetch from Supabase
-          const [ait, prod] = await Promise.all([
-            fetchInfractions().catch(() => [] as TrafficInfraction[]),
-            fetchProductivity().catch(() => [] as ProductivityRecord[])
-          ]);
-          if (ait.length) setInfractions(ait);
-          if (prod.length) setProductivity(prod);
-        } else {
-          // Fallback to localStorage
-          const savedAit = localStorage.getItem('22bpm_infractions');
-          if (savedAit) setInfractions(JSON.parse(savedAit));
-          const savedProd = localStorage.getItem('22bpm_productivity');
-          if (savedProd) setProductivity(JSON.parse(savedProd));
+        // Verificar se há usuário salvo no localStorage
+        const savedUser = localStorage.getItem('22bpm_user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            setUser(parsedUser);
+          } catch (e) {
+            // Se houver erro ao parsear, remover dados corrompidos
+            localStorage.removeItem('22bpm_user');
+          }
         }
       } finally {
         setIsInitializing(false);
@@ -60,6 +51,27 @@ const App: React.FC = () => {
     };
     init();
   }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (supabaseReady && user) {
+        // Fetch from Supabase
+        const [ait, prod] = await Promise.all([
+          fetchInfractions().catch(() => [] as TrafficInfraction[]),
+          fetchProductivity().catch(() => [] as ProductivityRecord[])
+        ]);
+        if (ait.length) setInfractions(ait);
+        if (prod.length) setProductivity(prod);
+      } else if (!supabaseReady && user) {
+        // Fallback to localStorage
+        const savedAit = localStorage.getItem('22bpm_infractions');
+        if (savedAit) setInfractions(JSON.parse(savedAit));
+        const savedProd = localStorage.getItem('22bpm_productivity');
+        if (savedProd) setProductivity(JSON.parse(savedProd));
+      }
+    };
+    loadData();
+  }, [user]);
 
   const handleLogin = (authenticatedUser: User) => {
     setUser(authenticatedUser);
