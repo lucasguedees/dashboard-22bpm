@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { User } from '../types';
 import { ShieldIcon } from '../constants';
 import { supabase } from '../lib/supabase';
-import { getOrCreateAppUser, getAppUser } from '../lib/api';
+import { getOrCreateAppUser, getAppUser, createUserProfile } from '../lib/api';
 
 interface LoginProps {
   onLogin: (user: User, rememberMe?: boolean) => void;
@@ -101,7 +101,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       if (!signUpData.user?.id) throw new Error('Falha ao criar conta.');
 
       // Criar perfil em app_users
-      const profile = await getOrCreateAppUser(signUpData.user.id, registerName);
+      const profile = await createUserProfile(signUpData.user.id, registerName, registerEmail, registerRank);
       
       setSuccessMessage('Conta criada com sucesso! Você já pode fazer login.');
       setRegisterLoading(false);
