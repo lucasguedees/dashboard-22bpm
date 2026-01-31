@@ -10,6 +10,7 @@ import UserManagement from './components/UserManagement';
 import Login from './components/Login';
 import { ViewType, TrafficInfraction, ProductivityRecord, User } from './types';
 import { ShieldIcon } from './constants';
+import { supabase } from './lib/supabase';
 import { supabaseReady, fetchInfractions, fetchProductivity, insertInfraction, updateInfraction, deleteInfractionById, insertProductivity, updateProductivity, deleteProductivityById } from './lib/api';
 
 const App: React.FC = () => {
@@ -20,10 +21,16 @@ const App: React.FC = () => {
   const [editingAit, setEditingAit] = useState<TrafficInfraction | null>(null);
   const [editingProd, setEditingProd] = useState<ProductivityRecord | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [supabaseReady, setSupabaseReady] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
     const init = async () => {
+      console.log('=== APP INIT START ===');
+      console.log('Environment:', import.meta.env.MODE);
+      console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Not set');
+      console.log('Supabase Key:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set');
+      
       try {
         const savedUsers = localStorage.getItem('22bpm_users_list');
         if (!savedUsers) {
@@ -34,12 +41,22 @@ const App: React.FC = () => {
           localStorage.setItem('22bpm_users_list', JSON.stringify(defaultUsers));
         }
 
+        // Check if Supabase is properly configured
+        if (supabase) {
+          console.log('Supabase client is available');
+          setSupabaseReady(true);
+        } else {
+          console.warn('Supabase not available, using localStorage mode');
+          setSupabaseReady(false);
+        }
+
         // Verificar se há usuário salvo no localStorage
         const savedUser = localStorage.getItem('22bpm_user');
         if (savedUser) {
           try {
             const parsedUser = JSON.parse(savedUser);
             setUser(parsedUser);
+            console.log('User restored from localStorage:', parsedUser.username);
           } catch (e) {
             // Se houver erro ao parsear, remover dados corrompidos
             localStorage.removeItem('22bpm_user');
@@ -47,6 +64,7 @@ const App: React.FC = () => {
         }
       } finally {
         setIsInitializing(false);
+        console.log('=== APP INIT END ===');
       }
     };
     init();
@@ -287,14 +305,19 @@ const App: React.FC = () => {
     setIsSidebarOpen(false); 
   };
 
-  if (isInitializing) return (
-    <div className="h-screen bg-gray-950 flex flex-col items-center justify-center">
-      <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-      <span className="text-blue-500 font-bold uppercase text-xs tracking-widest">Iniciando Dashboard 22º BPM...</span>
-    </div>
-  );
-
-  if (!user) return <Login onLogin={handleLogin} />;
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <ShieldIcon className="w-16 h-auto mx-auto mb-4" />
+          <div className="text-white text-xl">Inicializando Dashboard 22º BPM...</div>
+          <div className="text-gray-400 text-sm mt-2">
+            {supabase ? 'Conectando ao Supabase...' : 'Usando modo local...'}
+          </div>
+        </div>
+      </div>
+    );
+  } if (!user) return <Login onLogin={handleLogin} />;
 
   const renderContent = () => {
     switch (activeView) {

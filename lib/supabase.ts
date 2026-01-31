@@ -13,12 +13,15 @@ if (url && anon) {
         persistSession: true
       }
     });
+    console.log('Supabase client initialized successfully');
   } catch (e) {
     console.error('Erro ao criar cliente Supabase:', e);
     supabase = null;
   }
 } else {
   console.warn('Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
+  console.warn('URL:', url ? 'Set' : 'Not set');
+  console.warn('ANON_KEY:', anon ? 'Set' : 'Not set');
 }
 
 export { supabase };
