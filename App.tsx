@@ -133,61 +133,51 @@ const App: React.FC = () => {
   };
 
   const deleteInfraction = useCallback(async (id: string) => {
-    console.log('deleteInfraction called with ID:', id);
+    console.log('=== DELETE INFRACTION START ===');
+    console.log('ID received:', id);
+    console.log('Current infractions count:', infractions.length);
+    
     if (!window.confirm("CONFIRMA EXCLUSÃO DEFINITIVA?\nOs gráficos e relatórios serão atualizados imediatamente.")) {
-      console.log('User cancelled deletion');
+      console.log('User cancelled');
       return;
     }
 
-    console.log('Finding item to delete with ID:', id);
-    // Get the item being deleted to restore if needed
     const itemToDelete = infractions.find(item => item.id === id);
+    console.log('Item to delete:', itemToDelete);
+    
     if (!itemToDelete) {
-      console.error('Item not found with ID:', id);
+      alert('Erro: Item não encontrado');
       return;
     }
-    console.log('Item to delete:', itemToDelete);
 
     console.log('supabaseReady:', supabaseReady);
-    // Optimistic UI update first
+    
+    // Simple optimistic update
     setInfractions(prev => {
       const updated = prev.filter(item => item.id !== id);
-      console.log('Optimistic update - filtered from', prev.length, 'to', updated.length, 'items');
-      if (!supabaseReady) {
-        localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
-        console.log('Updated localStorage (offline mode)');
-      }
+      console.log('Updated count:', updated.length);
       return updated;
     });
 
     if (supabaseReady) {
-      console.log('Deleting from Supabase...');
       try {
+        console.log('Attempting Supabase delete...');
         await deleteInfractionById(id);
-        console.log('Successfully deleted from Supabase');
-        // Force refresh the data from the server
-        const refreshed = await fetchInfractions();
-        console.log('Refreshed data from server:', refreshed.length, 'items');
-        setInfractions(refreshed);
-      } catch (e) {
-        console.error('Error deleting infraction:', e);
-        alert('Falha ao excluir no servidor. A lista será restaurada.');
-        // Rollback by adding the item back
-        setInfractions(prev => {
-          const updated = [...prev, itemToDelete];
-          localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
-          return updated;
-        });
+        console.log('Supabase delete successful');
+      } catch (error) {
+        console.error('Supabase delete failed:', error);
+        alert('Falha ao excluir no servidor: ' + error.message);
+        // Rollback
+        setInfractions(prev => [...prev, itemToDelete]);
       }
     } else {
       console.log('Using localStorage mode');
-      // For local storage, force a state update to ensure UI refreshes
-      setInfractions(prev => {
-        const updated = prev.filter(item => item.id !== id);
-        localStorage.setItem('22bpm_infractions', JSON.stringify(updated));
-        return updated;
-      });
+      localStorage.setItem('22bpm_infractions', JSON.stringify(
+        infractions.filter(item => item.id !== id)
+      ));
     }
+    
+    console.log('=== DELETE INFRACTION END ===');
   }, [infractions, supabaseReady]);
 
   const saveProductivity = async (data: Omit<ProductivityRecord, 'id' | 'timestamp'>) => {
