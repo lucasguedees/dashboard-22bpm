@@ -202,13 +202,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mt-4">
               <label className="flex items-center space-x-2 cursor-pointer group">
                 <input 
                   type="checkbox" 
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-blue-600 focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                  className="w-4 h-4 border-gray-600 rounded bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-2 cursor-pointer"
                 />
                 <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">Manter conectado</span>
               </label>
