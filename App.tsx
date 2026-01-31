@@ -73,9 +73,14 @@ const App: React.FC = () => {
     loadData();
   }, [user]);
 
-  const handleLogin = (authenticatedUser: User) => {
+  const handleLogin = (authenticatedUser: User, rememberMe?: boolean) => {
     setUser(authenticatedUser);
-    localStorage.setItem('22bpm_user', JSON.stringify(authenticatedUser));
+    if (rememberMe) {
+      localStorage.setItem('22bpm_user', JSON.stringify(authenticatedUser));
+    } else {
+      // Remove any existing session data if not remembering
+      localStorage.removeItem('22bpm_user');
+    }
   };
 
   const handleLogout = () => {

@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { getOrCreateAppUser } from '../lib/api';
 
 interface LoginProps {
-  onLogin: (user: User) => void;
+  onLogin: (user: User, rememberMe?: boolean) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -18,6 +18,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
   
   // Register states
@@ -48,7 +49,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       // Busca ou cria perfil em app_users
       const profile = await getOrCreateAppUser(signInData.user.id, email.split('@')[0]);
-      onLogin(profile);
+      onLogin(profile, rememberMe);
     } catch (err: any) {
       setError(err?.message || 'Falha na autenticação.');
       setLoading(false);
@@ -199,6 +200,18 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   )}
                 </button>
               </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="flex items-center space-x-2 cursor-pointer group">
+                <input 
+                  type="checkbox" 
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 bg-gray-800 border-gray-600 rounded text-blue-600 focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                />
+                <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">Manter conectado</span>
+              </label>
             </div>
 
             <button 
