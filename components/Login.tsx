@@ -92,11 +92,23 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       if (!registerName.trim()) throw new Error('Informe seu nome completo.');
 
       // Verificar se usuário já existe no Supabase Auth
+      console.log('=== REGISTRATION START ===');
+      console.log('Environment:', import.meta.env.MODE);
+      console.log('Supabase available:', !!supabase);
+      console.log('Email:', registerEmail);
       console.log('Checking if user exists in Supabase Auth...');
+      
+      if (!supabase) {
+        throw new Error('Supabase não está configurado no ambiente de produção');
+      }
+      
       const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ 
         email: registerEmail, 
         password: registerPassword 
       });
+      
+      console.log('SignIn error:', signInErr?.message);
+      console.log('SignIn data:', signInData?.user?.id ? 'User found' : 'No user');
       
       if (signInErr?.message.includes('Invalid login credentials')) {
         // Usuário não existe no Auth, pode criar novo
@@ -106,23 +118,33 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           password: registerPassword 
         });
         
+        console.log('SignUp error:', signUpErr?.message);
+        console.log('SignUp data:', signUpData?.user?.id ? 'User created' : 'No user');
+        
         if (signUpErr) throw signUpErr;
         if (!signUpData.user?.id) throw new Error('Falha ao criar conta.');
 
         // Criar perfil em app_users
+        console.log('Creating profile for new user...');
         const profile = await createUserProfile(signUpData.user.id, registerName, registerEmail, registerRank);
+        console.log('Profile created:', profile);
         
         setSuccessMessage('Conta criada com sucesso! Você já pode fazer login.');
       } else if (!signInErr && signInData.user?.id) {
         // Usuário existe no Auth mas não tem perfil, criar apenas o perfil
         console.log('User exists in Auth, creating profile only...');
+        console.log('Auth user ID:', signInData.user.id);
+        
         const profile = await createUserProfile(signInData.user.id, registerName, registerEmail, registerRank);
+        console.log('Profile created for existing user:', profile);
         
         setSuccessMessage('Perfil criado com sucesso! Você já pode fazer login.');
         
         // Fazer logout para limpar a sessão
         await supabase.auth.signOut();
+        console.log('Logged out after profile creation');
       } else {
+        console.error('Unexpected error:', signInErr);
         throw signInErr || new Error('Erro ao verificar usuário existente');
       }
       
@@ -143,7 +165,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       }, 2000);
       
     } catch (err: any) {
-      setRegisterError(err?.message || 'Falha ao criar conta.');
+      console.error('=== REGISTRATION ERROR ===');
+      console.error('Error type:', typeof err);
+      console.error('Error message:', err?.message);
+      console.error('Error details:', err);
+      console.error('=== END REGISTRATION ERROR ===');
+      
+      setRegisterError(err?.message || 'Falha no cadastro.');
       setRegisterLoading(false);
     }
   };
