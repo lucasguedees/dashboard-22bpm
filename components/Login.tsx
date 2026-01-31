@@ -38,22 +38,39 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
     setLoading(true);
     try {
+      console.log('=== LOGIN SUBMIT START ===');
+      console.log('Email:', email);
+      
       if (!supabase) throw new Error('Supabase não configurado');
       if (!email.includes('@')) throw new Error('Informe um e-mail válido.');
 
       // Tenta login
+      console.log('Attempting Supabase signInWithPassword...');
       const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+      
+      console.log('signInErr:', signInErr);
+      console.log('signInData:', signInData);
       
       if (signInErr) throw signInErr;
       if (!signInData.user?.id) throw new Error('Falha na autenticação.');
 
+      console.log('Auth successful, user ID:', signInData.user.id);
+
       // Busca perfil existente em app_users (não cria automaticamente)
+      console.log('Looking for app_user profile...');
       const profile = await getAppUser(signInData.user.id);
+      console.log('Profile result:', profile);
+      
       if (!profile) {
+        console.log('No profile found, throwing error');
         throw new Error('Usuário não encontrado. Faça o cadastro primeiro.');
       }
+      
+      console.log('Profile found, logging in...');
       onLogin(profile, rememberMe);
+      console.log('=== LOGIN SUBMIT END ===');
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err?.message || 'Falha na autenticação.');
       setLoading(false);
     }
