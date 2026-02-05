@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, Legend, LabelList
 } from 'recharts';
-import { CITIES, MONTHS } from '../constants.tsx';
-import { TrafficInfraction } from '../types.ts';
+import { CITIES, MONTHS } from '../constants';
+import { TrafficInfraction } from '../types';
 
 declare var html2canvas: any;
 
@@ -13,7 +13,19 @@ interface AitDashboardProps {
   isAdmin?: boolean;
   onDelete?: (id: string) => void;
   onEdit?: (item: TrafficInfraction) => void;
+  userGroup?: string;
+  userCity?: string;
 }
+
+// Mapeamento de cidades por grupo
+const CITY_GROUPS = {
+  '1ª CIA': ['Lajeado', 'Cruzeiro do Sul', 'Santa Clara do Sul', 'Forquetinha', 'Sério', 'Canudos do Vale'],
+  '2ª CIA': ['Encantado', 'Roca Sales', 'Nova Bréscia', 'Coqueiro Baixo', 'Muçum', 'Relvado', 'Doutor Ricardo', 'Vespasiano Correa'],
+  '3ª CIA': ['Arroio do Meio', 'Capitão', 'Travesseiro', 'Marques de Souza', 'Pouso Novo', 'Progresso']
+} as const;
+
+type CityGroup = keyof typeof CITY_GROUPS;
+type City = typeof CITY_GROUPS[CityGroup][number];
 
 const CITY_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -221,9 +233,32 @@ const ChartContainer: React.FC<{
   );
 };
 
-const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, onEdit }) => {
+const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, onEdit, userGroup, userCity }) => {
   const dashboardRef = useRef<HTMLDivElement>(null);
-  const [selectedCities, setSelectedCities] = useState<string[]>([CITIES[0]]);
+  // Função para selecionar todas as cidades do grupo do usuário
+  const selectGroupCities = () => {
+    if (userGroup && CITY_GROUPS[userGroup as CityGroup]) {
+      setSelectedCities([...CITY_GROUPS[userGroup as CityGroup]]);
+    }
+  };
+
+  // Função para limpar todas as seleções e voltar para a cidade do usuário
+  const clearSelection = () => {
+    if (userCity && CITIES.includes(userCity)) {
+      setSelectedCities([userCity]);
+    } else if (CITIES.length > 0) {
+      setSelectedCities([CITIES[0]]);
+    } else {
+      setSelectedCities([]);
+    }
+  };
+
+  // Usar todas as cidades
+  const getUserCities = useMemo(() => {
+    return CITIES; // Retorna todas as cidades
+  }, []);
+
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [selectedYearFilter, setSelectedYearFilter] = useState<string>('all');
   const [selectedAnnualYear, setSelectedAnnualYear] = useState<string>('latest');
   const [tableSearch, setTableSearch] = useState('');
@@ -232,6 +267,15 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
   const [isHistoryOpen, setIsHistoryOpen] = useState(true);
   const isExportingRef = useRef(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  // Inicializar com a cidade do usuário ou a primeira cidade por padrão
+  useEffect(() => {
+    if (userGroup && userCity && CITIES.includes(userCity)) {
+      setSelectedCities([userCity]);
+    } else if (CITIES.length > 0) {
+      setSelectedCities([CITIES[0]]);
+    }
+  }, [userGroup, userCity]);
 
   const toggleCity = (city: string) => {
     setSelectedCities(prev => {
@@ -616,9 +660,29 @@ const AitDashboard: React.FC<AitDashboardProps> = ({ data, isAdmin, onDelete, on
         </div>
 
         <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-800">
-          <label className="text-[10px] font-black text-gray-500 uppercase mb-3 block ml-1">Cidades Ativas</label>
+          <div className="flex justify-between items-center mb-3">
+            <label className="text-[10px] font-black text-gray-500 uppercase ml-1">Cidades Ativas</label>
+            <div className="flex gap-2">
+              <button 
+                onClick={clearSelection}
+                className="text-[10px] bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded-md transition-colors"
+                title="Limpar seleção"
+              >
+                Limpar
+              </button>
+              {userGroup && CITY_GROUPS[userGroup as CityGroup] && (
+                <button 
+                  onClick={selectGroupCities}
+                  className="text-[10px] bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded-md transition-colors"
+                  title={`Selecionar cidades da ${userGroup}`}
+                >
+                  Selecionar {userGroup}
+                </button>
+              )}
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2">
-            {CITIES.map((city) => (
+            {getUserCities.map((city) => (
               <button
                 key={city}
                 onClick={() => toggleCity(city)}

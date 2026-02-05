@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LabelList 
 } from 'recharts';
@@ -8,11 +8,23 @@ import { ProductivityRecord } from '../types';
 
 declare var html2canvas: any;
 
+// Mapeamento de cidades por grupo
+const CITY_GROUPS = {
+  '1ª CIA': ['Lajeado', 'Cruzeiro do Sul', 'Santa Clara do Sul', 'Forquetinha', 'Sério', 'Canudos do Vale'],
+  '2ª CIA': ['Encantado', 'Roca Sales', 'Nova Bréscia', 'Coqueiro Baixo', 'Muçum', 'Relvado', 'Doutor Ricardo', 'Vespasiano Correa'],
+  '3ª CIA': ['Arroio do Meio', 'Capitão', 'Travesseiro', 'Marques de Souza', 'Pouso Novo', 'Progresso']
+} as const;
+
+type CityGroup = keyof typeof CITY_GROUPS;
+type City = typeof CITY_GROUPS[CityGroup][number];
+
 interface ProductivityDashboardProps {
   data: ProductivityRecord[];
   isAdmin?: boolean;
   onDelete?: (id: string) => void;
   onEdit?: (item: ProductivityRecord) => void;
+  userGroup?: string;
+  userCity?: string;
 }
 
 const handleExportExpandedChart = async (chartElement: HTMLElement, title: string) => {
@@ -150,7 +162,7 @@ const ChartContainer: React.FC<{
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Exportar PNG
+                  Exportar
                 </button>
                 <button 
                   onClick={(e) => {
@@ -220,11 +232,43 @@ const ChartContainer: React.FC<{
   );
 };
 
-const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isAdmin, onDelete, onEdit }) => {
+const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isAdmin, onDelete, onEdit, userGroup, userCity }) => {
   const currentYear = new Date().getFullYear().toString();
-  const [selectedCities, setSelectedCities] = useState<string[]>([CITIES[0]]);
+  // Função para selecionar todas as cidades do grupo do usuário
+  const selectGroupCities = () => {
+    if (userGroup && CITY_GROUPS[userGroup as CityGroup]) {
+      setSelectedCities([...CITY_GROUPS[userGroup as CityGroup]]);
+    }
+  };
+
+  // Função para limpar todas as seleções e voltar para a cidade do usuário
+  const clearSelection = () => {
+    if (userCity && CITIES.includes(userCity)) {
+      setSelectedCities([userCity]);
+    } else if (CITIES.length > 0) {
+      setSelectedCities([CITIES[0]]);
+    } else {
+      setSelectedCities([]);
+    }
+  };
+
+  // Usar todas as cidades
+  const getUserCities = useMemo(() => {
+    return CITIES; // Retorna todas as cidades
+  }, []);
+
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(true);
+
+  // Inicializar com a cidade do usuário ou a primeira cidade por padrão
+  useEffect(() => {
+    if (userGroup && userCity && CITIES.includes(userCity)) {
+      setSelectedCities([userCity]);
+    } else if (CITIES.length > 0) {
+      setSelectedCities([CITIES[0]]);
+    }
+  }, [userGroup, userCity]);
 
   // Filtros de ano e mês para cada gráfico
   const [yearFilterProc, setYearFilterProc] = useState<string>('all');
@@ -548,22 +592,424 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
   };
 
   const years = Array.from({ length: 7 }, (_, i) => (2024 + i).toString());
+  const dashboardRef = useRef<HTMLDivElement>(null);
+
+  const handleExportDashboard = async () => {
+    if (!dashboardRef.current) return;
+    
+    // Mostrar um indicador de carregamento
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.style.position = 'fixed';
+    loadingIndicator.style.top = '50%';
+    loadingIndicator.style.left = '50%';
+    loadingIndicator.style.transform = 'translate(-50%, -50%)';
+    loadingIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+    loadingIndicator.style.padding = '20px 40px';
+    loadingIndicator.style.borderRadius = '8px';
+    loadingIndicator.style.zIndex = '99999';
+    loadingIndicator.style.color = 'white';
+    loadingIndicator.style.fontWeight = 'bold';
+    loadingIndicator.style.boxShadow = '0 4px 20px rgba(0,0,0,0.5)';
+    loadingIndicator.style.border = '1px solid rgba(255,255,255,0.1)';
+    loadingIndicator.style.textAlign = 'center';
+    loadingIndicator.innerHTML = 'Preparando exportação...<br><small>Isso pode levar alguns segundos</small>';
+    document.body.appendChild(loadingIndicator);
+    
+    try {
+      // Forçar a renderização de elementos que podem estar ocultos
+      const allMenus = document.querySelectorAll(
+        '.MuiMenu-paper, [role="menu"], [role="tooltip"], ' +
+        '.MuiPopover-root, .MuiModal-root, .MuiPopover-paper, ' +
+        '.MuiAutocomplete-paper, .MuiAutocomplete-listbox, [role="listbox"]'
+      );
+      const originalStyles: {[key: string]: any} = {};
+      
+      // Função para forçar a exibição de tooltips e popovers
+      const forceTooltipsAndPopovers = () => {
+        // Forçar exibição de tooltips
+        const tooltips = document.querySelectorAll('[role="tooltip"]');
+        tooltips.forEach((tooltip, i) => {
+          const el = tooltip as HTMLElement;
+          originalStyles[`tooltip-${i}-style`] = el.getAttribute('style') || '';
+          el.style.setProperty('opacity', '1', 'important');
+          el.style.setProperty('visibility', 'visible', 'important');
+          el.style.setProperty('z-index', '9999', 'important');
+        });
+        
+        // Forçar exibição de popovers
+        const popovers = document.querySelectorAll('.MuiPopover-root, .MuiPopover-paper');
+        popovers.forEach((popover, i) => {
+          const el = popover as HTMLElement;
+          originalStyles[`popover-${i}-style`] = el.getAttribute('style') || '';
+          el.style.setProperty('opacity', '1', 'important');
+          el.style.setProperty('visibility', 'visible', 'important');
+          el.style.setProperty('display', 'block', 'important');
+          el.style.setProperty('position', 'relative', 'important');
+          el.style.setProperty('transform', 'none', 'important');
+          el.style.setProperty('z-index', '9998', 'important');
+        });
+      };
+      
+      // Função para salvar e modificar estilos
+      const saveAndModifyStyles = (element: HTMLElement, index: number) => {
+        // Salvar estilos originais
+        const styles = window.getComputedStyle(element);
+        originalStyles[`${index}-display`] = styles.display;
+        originalStyles[`${index}-opacity`] = styles.opacity;
+        originalStyles[`${index}-transform`] = styles.transform;
+        originalStyles[`${index}-visibility`] = styles.visibility;
+        originalStyles[`${index}-zIndex`] = styles.zIndex;
+        originalStyles[`${index}-position`] = styles.position;
+        originalStyles[`${index}-pointerEvents`] = styles.pointerEvents;
+        
+        // Aplicar estilos para visibilidade total
+        element.style.setProperty('display', 'block', 'important');
+        element.style.setProperty('opacity', '1', 'important');
+        element.style.setProperty('visibility', 'visible', 'important');
+        element.style.setProperty('transform', 'none', 'important');
+        element.style.setProperty('z-index', '9998', 'important');
+        element.style.setProperty('position', 'relative', 'important');
+        element.style.setProperty('pointer-events', 'none', 'important');
+        
+        // Remover classes que podem afetar a visibilidade
+        element.classList.remove('MuiMenu-hidden', 'MuiModal-hidden', 'MuiPopover-hidden');
+      };
+      
+      // Forçar exibição de tooltips e popovers primeiro
+      forceTooltipsAndPopovers();
+      
+      // Aplicar a todos os menus e modais
+      allMenus.forEach((menu, index) => {
+        const element = menu as HTMLElement;
+        // Pular elementos que já foram processados
+        if (element.getAttribute('data-export-processed') === 'true') return;
+        
+        saveAndModifyStyles(element, index);
+        element.setAttribute('data-export-processed', 'true');
+        
+        // Forçar abertura de menus suspensos
+        if (element.classList.contains('MuiMenu-paper') || element.getAttribute('role') === 'menu') {
+          element.style.setProperty('display', 'block', 'important');
+          element.style.setProperty('opacity', '1', 'important');
+          element.style.setProperty('visibility', 'visible', 'important');
+          element.style.setProperty('position', 'relative', 'important');
+          element.style.setProperty('transform', 'none', 'important');
+          element.style.setProperty('z-index', '9997', 'important');
+          element.style.setProperty('pointer-events', 'none', 'important');
+          element.style.setProperty('width', 'auto', 'important');
+          element.style.setProperty('height', 'auto', 'important');
+          element.style.setProperty('max-height', 'none', 'important');
+          element.style.setProperty('overflow', 'visible', 'important');
+        }
+        
+        // Tratar também os elementos filhos que podem estar afetando a visibilidade
+        const children = element.querySelectorAll('*');
+        children.forEach((child, childIndex) => {
+          const childEl = child as HTMLElement;
+          if (childEl.getAttribute('data-export-processed') === 'true') return;
+          
+          const styles = window.getComputedStyle(childEl);
+          if (styles.opacity === '0' || styles.visibility === 'hidden' || 
+              childEl.classList.contains('MuiMenuItem-root')) {
+            saveAndModifyStyles(childEl, index * 1000 + childIndex);
+            childEl.setAttribute('data-export-processed', 'true');
+            
+            // Garantir que itens de menu sejam visíveis
+            if (childEl.classList.contains('MuiMenuItem-root')) {
+              childEl.style.setProperty('opacity', '1', 'important');
+              childEl.style.setProperty('visibility', 'visible', 'important');
+              childEl.style.setProperty('display', 'flex', 'important');
+              childEl.style.setProperty('position', 'relative', 'important');
+            }
+          }
+        });
+      });
+      
+      // Forçar repintura para garantir que os estilos sejam aplicados
+      document.body.offsetHeight;
+      
+      // Dar tempo para os estilos serem aplicados
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Esperar um frame para garantir que os estilos sejam aplicados
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      
+      // Forçar nova verificação de elementos que possam ter sido adicionados dinamicamente
+      const dynamicElements = document.querySelectorAll('.MuiMenu-paper, [role="menu"], [role="tooltip"], .MuiPopover-root, .MuiModal-root, .MuiPopover-paper, .MuiAutocomplete-paper, .MuiAutocomplete-listbox, [role="listbox"]');
+      dynamicElements.forEach((el, i) => {
+        if (!el.getAttribute('data-export-processed')) {
+          const element = el as HTMLElement;
+          saveAndModifyStyles(element, 10000 + i); // Usar um índice alto para não conflitar
+          element.setAttribute('data-export-processed', 'true');
+        }
+      });
+      
+      // Criar um clone do nó raiz
+      const clone = dashboardRef.current.cloneNode(true) as HTMLElement;
+      
+      // Obter o mês e ano atuais para adicionar aos gráficos
+      const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+      const currentDate = new Date();
+      const currentMonth = monthNames[currentDate.getMonth()];
+      const currentYear = currentDate.getFullYear();
+      
+      // Adicionar informações de data aos títulos dos gráficos
+      const chartContainers = clone.querySelectorAll('.chart-container');
+      chartContainers.forEach(container => {
+        const titleElement = container.querySelector('h3, h4, .chart-title');
+        if (titleElement) {
+          const isMonthly = container.querySelector('.month-selector') !== null;
+          const dateInfo = isMonthly 
+            ? `${currentMonth} de ${selectedYear}`
+            : `Ano: ${selectedYear}`;
+          
+          if (!titleElement.textContent?.includes(selectedYear) && !titleElement.textContent?.includes(currentMonth)) {
+            const dateSpan = document.createElement('span');
+            dateSpan.textContent = ` (${dateInfo})`;
+            dateSpan.style.color = '#9ca3af';
+            dateSpan.style.fontWeight = 'normal';
+            titleElement.appendChild(dateSpan);
+          }
+        }
+      });
+      
+      // Remover botões de exportação e outros elementos indesejados
+      const elementsToRemove = clone.querySelectorAll(
+        '[data-export-ignore], button[title*="Exportar"], .MuiBackdrop-root, .export-button'
+      );
+      elementsToRemove.forEach(el => el.remove());
+      
+      // Criar container para a exportação
+      const exportContainer = document.createElement('div');
+      exportContainer.style.backgroundColor = '#030712';
+      exportContainer.style.padding = '24px';
+      exportContainer.style.borderRadius = '16px';
+      exportContainer.style.width = 'fit-content';
+      exportContainer.style.margin = '0 auto';
+      
+      // Adicionar cabeçalho com título e data
+      const header = document.createElement('div');
+      header.innerHTML = `
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h1 style="font-size: 24px; font-weight: bold; color: #10b981; margin: 0 0 8px 0;">
+            Estatísticas de Produtividade - 22º BPM
+          </h1>
+          <p style="color: #9ca3af; margin: 0 0 16px 0;">
+            Período: ${selectedYear} | Gerado em ${new Date().toLocaleDateString('pt-BR', { 
+              day: '2-digit', 
+              month: 'long', 
+              year: 'numeric', 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })}
+          </p>
+        </div>
+      `;
+      
+      exportContainer.appendChild(header);
+      exportContainer.appendChild(clone);
+      
+      // Adicionar temporariamente ao DOM para renderização
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'fixed';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.top = '0';
+      tempContainer.style.zIndex = '9998';
+      tempContainer.appendChild(exportContainer);
+      document.body.appendChild(tempContainer);
+      
+      // Configurações avançadas para o html2canvas
+      const canvas = await html2canvas(exportContainer, {
+        scale: 2,
+        backgroundColor: '#030712',
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: document.documentElement.scrollWidth,
+        windowHeight: document.documentElement.scrollHeight,
+        onclone: (clonedDoc) => {
+          // Garantir que os estilos sejam aplicados corretamente no clone
+          const style = clonedDoc.createElement('style');
+          style.textContent = `
+            .MuiMenu-paper, [role="menu"], [role="tooltip"], .MuiPopover-root, .MuiModal-root {
+              opacity: 1 !important;
+              visibility: visible !important;
+              position: relative !important;
+              transform: none !important;
+              max-height: none !important;
+              max-width: none !important;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+            }
+            .MuiBackdrop-root {
+              display: none !important;
+            }
+          `;
+          clonedDoc.head.appendChild(style);
+        }
+      });
+      
+      // Criar link de download
+      const link = document.createElement('a');
+      link.download = `estatisticas-22bpm-${new Date().toISOString().split('T')[0]}.png`;
+      link.href = canvas.toDataURL('image/png');
+      
+      // Função para restaurar estilos originais
+      const restoreOriginalStyles = () => {
+        // Restaurar tooltips
+        const tooltips = document.querySelectorAll('[role="tooltip"]');
+        tooltips.forEach((tooltip, i) => {
+          const el = tooltip as HTMLElement;
+          const originalStyle = originalStyles[`tooltip-${i}-style`];
+          if (originalStyle) {
+            el.setAttribute('style', originalStyle);
+          } else {
+            el.removeAttribute('style');
+          }
+        });
+        
+        // Restaurar popovers
+        const popovers = document.querySelectorAll('.MuiPopover-root, .MuiPopover-paper');
+        popovers.forEach((popover, i) => {
+          const el = popover as HTMLElement;
+          const originalStyle = originalStyles[`popover-${i}-style`];
+          if (originalStyle) {
+            el.setAttribute('style', originalStyle);
+          } else {
+            el.removeAttribute('style');
+          }
+        });
+        
+        // Restaurar menus e modais
+        allMenus.forEach((menu, index) => {
+          const element = menu as HTMLElement;
+          
+          // Remover atributos de processamento
+          element.removeAttribute('data-export-processed');
+          
+          // Restaurar estilos originais
+          if (originalStyles[`${index}-display`] !== undefined) {
+            element.style.display = originalStyles[`${index}-display`] || '';
+            element.style.opacity = originalStyles[`${index}-opacity`] || '';
+            element.style.visibility = originalStyles[`${index}-visibility`] || '';
+            element.style.transform = originalStyles[`${index}-transform`] || '';
+            element.style.zIndex = originalStyles[`${index}-zIndex`] || '';
+            element.style.position = originalStyles[`${index}-position`] || '';
+            element.style.pointerEvents = originalStyles[`${index}-pointerEvents`] || '';
+            
+            // Se o elemento tinha um estilo inline, restaurar, senão remover
+            if (!originalStyles[`${index}-hasInlineStyle`]) {
+              element.removeAttribute('style');
+            }
+          }
+          
+          // Restaurar classes se necessário
+          if (originalStyles[`${index}-opacity`] === '0') {
+            element.classList.add('MuiMenu-hidden', 'MuiModal-hidden', 'MuiPopover-hidden');
+          }
+          
+          // Restaurar estilos dos filhos
+          const children = element.querySelectorAll('*');
+          children.forEach((child, childIndex) => {
+            const childEl = child as HTMLElement;
+            const childKey = index * 1000 + childIndex;
+            
+            childEl.removeAttribute('data-export-processed');
+            
+            if (originalStyles[`${childKey}-display`] !== undefined) {
+              childEl.style.display = originalStyles[`${childKey}-display`] || '';
+              childEl.style.opacity = originalStyles[`${childKey}-opacity`] || '';
+              childEl.style.visibility = originalStyles[`${childKey}-visibility`] || '';
+              
+              if (!originalStyles[`${childKey}-hasInlineStyle`]) {
+                childEl.removeAttribute('style');
+              }
+            }
+          });
+        });
+        
+        // Forçar nova verificação de elementos dinâmicos
+        const dynamicElements = document.querySelectorAll('.MuiMenu-paper, [role="menu"], [role="tooltip"], .MuiPopover-root, .MuiModal-root, .MuiPopover-paper, .MuiAutocomplete-paper, .MuiAutocomplete-listbox, [role="listbox"]');
+        dynamicElements.forEach((el) => {
+          el.removeAttribute('data-export-processed');
+        });
+      };
+      
+      // Configurar evento para restaurar estilos após o download
+      link.onclick = () => {
+        // Pequeno atraso para garantir que o download foi iniciado
+        setTimeout(() => {
+          restoreOriginalStyles();
+          document.body.removeChild(tempContainer);
+          document.body.removeChild(loadingIndicator);
+        }, 100);
+        
+        // Permitir que o navegador continue com o download
+        return true;
+      };
+      
+      // Disparar o download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Garantir a limpeza mesmo se algo der errado
+      setTimeout(() => {
+        try {
+          restoreOriginalStyles();
+          if (document.body.contains(tempContainer)) {
+            document.body.removeChild(tempContainer);
+          }
+          if (document.body.contains(loadingIndicator)) {
+            document.body.removeChild(loadingIndicator);
+          }
+        } catch (e) {
+          console.error('Erro ao limpar elementos temporários:', e);
+        }
+      }, 5000); // Timeout de segurança de 5 segundos
+      
+    } catch (error) {
+      console.error('Erro ao exportar o dashboard:', error);
+      alert('Ocorreu um erro ao exportar o dashboard. Por favor, tente novamente.');
+      document.body.removeChild(loadingIndicator);
+    }
+  };
 
   return (
-    <div className="space-y-8 animate-fadeIn pb-12">
+    <div className="space-y-8 animate-fadeIn pb-12" ref={dashboardRef}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-emerald-400 uppercase tracking-tight">Estatísticas de Produtividade</h2>
           <p className="text-gray-400 text-sm">Visão geral da performance operacional do Batalhão.</p>
         </div>
-        <div className="flex items-center space-x-3 bg-gray-900 p-2 rounded-xl border border-gray-800 shadow-lg">
-          <span className="text-xs font-bold text-gray-500 uppercase ml-2">Filtrar Resumo (Ano):</span>
-          <select value={selectedYear} onChange={e => {
-            e.stopPropagation();
-            setSelectedYear(e.target.value);
-          }} className="bg-gray-800 text-white rounded-lg px-4 py-2 outline-none cursor-pointer hover:bg-gray-700 transition-colors font-bold text-sm" onClick={e => e.stopPropagation()}>
-            {years.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+        <div className="flex flex-row-reverse sm:flex-row gap-3">
+          <button 
+            onClick={handleExportDashboard}
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-sm transition-colors shadow-lg"
+            title="Exportar Dashboard como PNG"
+            data-export-ignore
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Exportar
+          </button>
+          <div className="flex items-center bg-gray-900 p-2 rounded-xl border border-gray-800 shadow-lg">
+            <span className="text-xs font-bold text-gray-500 uppercase ml-2">Filtrar Resumo (Ano):</span>
+            <select 
+              value={selectedYear} 
+              onChange={e => {
+                e.stopPropagation();
+                setSelectedYear(e.target.value);
+              }} 
+              className="bg-gray-800 text-white rounded-lg px-4 py-2 outline-none cursor-pointer hover:bg-gray-700 transition-colors font-bold text-sm" 
+              onClick={e => e.stopPropagation()}
+            >
+              {years.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -584,9 +1030,29 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
 
       <div className="space-y-4">
         <div className="bg-gray-900/50 p-4 rounded-2xl border border-gray-800 shadow-lg">
-          <label className="text-[10px] font-black text-gray-500 uppercase mb-3 block ml-1">Municípios para Comparação nos Gráficos</label>
+          <div className="flex justify-between items-center mb-3">
+            <label className="text-[10px] font-black text-gray-500 uppercase ml-1">Municípios para Comparação nos Gráficos</label>
+            <div className="flex gap-2">
+              <button 
+                onClick={clearSelection}
+                className="text-[10px] bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded-md transition-colors"
+                title="Limpar seleção"
+              >
+                Limpar
+              </button>
+              {userGroup && CITY_GROUPS[userGroup as CityGroup] && (
+                <button 
+                  onClick={selectGroupCities}
+                  className="text-[10px] bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded-md transition-colors"
+                  title={`Selecionar cidades da ${userGroup}`}
+                >
+                  Selecionar {userGroup}
+                </button>
+              )}
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2">
-            {CITIES.map(c => (
+            {getUserCities.map(c => (
               <button key={c} onClick={() => toggleCity(c)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${selectedCities.includes(c) ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' : 'bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-500'}`}>
                 {c}
               </button>

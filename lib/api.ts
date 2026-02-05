@@ -33,6 +33,7 @@ export async function getAppUser(authUserId: string): Promise<User | null> {
     return {
       id: found.id,
       username: found.username,
+      email: found.email || '',
       role: found.role,
       rank: found.rank,
     } as User;
@@ -56,6 +57,7 @@ export async function getOrCreateAppUser(authUserId: string, usernameFallback?: 
     return {
       id: found.id,
       username: found.username,
+      email: found.email || '',
       role: found.role,
       rank: found.rank,
     } as User;
@@ -67,7 +69,7 @@ export async function getOrCreateAppUser(authUserId: string, usernameFallback?: 
   if (email) {
     const { data: byEmail } = await supabase
       .from('app_users')
-      .select('id, username, role, rank')
+      .select('id, username, email, role, rank')
       .eq('email', email)
       .single();
     if (byEmail?.id) {
@@ -75,12 +77,13 @@ export async function getOrCreateAppUser(authUserId: string, usernameFallback?: 
         .from('app_users')
         .update({ auth_user_id: authUserId })
         .eq('id', byEmail.id)
-        .select('id, username, role, rank')
+        .select('id, username, email, role, rank')
         .single();
       if (linked) {
         return {
           id: linked.id,
           username: linked.username,
+          email: linked.email || '',
           role: linked.role,
           rank: linked.rank,
         } as User;
@@ -104,13 +107,14 @@ export async function createUserProfile(authUserId: string, username: string, em
       role,
       rank,
     })
-    .select('id, username, role, rank')
+    .select('id, username, email, role, rank')
     .single();
   
   if (createErr) throw createErr;
   return {
     id: created!.id,
     username: created!.username,
+    email: created!.email || '',
     role: created!.role,
     rank: created!.rank,
   } as User;
@@ -135,14 +139,74 @@ async function getCurrentProfileId(): Promise<string | null> {
 }
 
 // -------- App Users CRUD (for UserManagement) --------
-export async function listAppUsers(): Promise<AppUserRow[]> {
+
+// Função para atualizar o e-mail de um usuário
+export async function updateUserEmail(userId: string, email: string): Promise<AppUserRow> {
   if (!supabase) throw new Error('Supabase not configured');
+  
+  console.log(`Atualizando e-mail do usuário ${userId} para:`, email);
+  
   const { data, error } = await supabase
     .from('app_users')
+    .update({ email })
+    .eq('id', userId)
     .select('id, username, email, role, rank')
-    .order('username', { ascending: true });
-  if (error) throw error;
-  return (data || []) as AppUserRow[];
+    .single();
+    
+  if (error) {
+    console.error('Erro ao atualizar e-mail:', error);
+    throw error;
+  }
+  
+  console.log('E-mail atualizado com sucesso:', data);
+  return data as AppUserRow;
+}
+
+export async function listAppUsers(): Promise<AppUserRow[]> {
+  if (!supabase) throw new Error('Supabase not configured');
+  
+  console.log('=== INÍCIO listAppUsers ===');
+  console.log('Configuração do Supabase:', {
+    url: import.meta.env.VITE_SUPABASE_URL,
+    key: import.meta.env.VITE_SUPABASE_ANON_KEY ? '*** (chave definida)' : 'não definida'
+  });
+  
+  try {
+    console.log('Executando consulta ao banco de dados...');
+    const { data, error, status } = await supabase
+      .from('app_users')
+      .select('id, username, email, role, rank, created_at')
+      .order('username', { ascending: true });
+    
+    console.log('Status da resposta:', status);
+    
+    if (error) {
+      console.error('Erro ao buscar usuários:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      throw error;
+    }
+    
+    console.log('Total de usuários encontrados:', data?.length || 0);
+    console.log('Dados completos dos usuários:', JSON.stringify(data, null, 2));
+    
+    // Verificar se há usuários sem e-mail
+    if (data && data.length > 0) {
+      const usersWithoutEmail = data.filter(u => !u.email);
+      if (usersWithoutEmail.length > 0) {
+        console.warn(`${usersWithoutEmail.length} usuário(s) sem e-mail:`, 
+          usersWithoutEmail.map(u => `${u.username} (ID: ${u.id})`).join(', '));
+      }
+    }
+    
+    return (data || []) as AppUserRow[];
+  } catch (error) {
+    console.error('Erro em listAppUsers:', error);
+    throw error;
+  }
 }
 
 export async function createAppUser(row: { username: string; email?: string | null; role: User['role']; rank: string; auth_user_id?: string | null; }): Promise<AppUserRow> {

@@ -4,7 +4,9 @@ import { User, UserRole } from '../types';
 import { supabaseReady, listAppUsers, createAppUser, deleteAppUser, updateAppUser } from '../lib/api';
 
 const UserManagement: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  // Usando um tipo local para permitir usuários sem email
+  type LocalUser = Omit<User, 'email'> & { email?: string };
+  const [users, setUsers] = useState<LocalUser[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -21,52 +23,110 @@ const UserManagement: React.FC = () => {
     const load = async () => {
       if (supabaseReady) {
         try {
+          console.log('Iniciando carregamento de usuários...');
           const rows = await listAppUsers();
-          const mapped: User[] = rows.map(r => ({ id: r.id, username: r.username, role: r.role, rank: r.rank }));
+          console.log('Dados brutos recebidos do Supabase:', JSON.stringify(rows, null, 2));
+          
+          const mapped = rows.map(r => {
+            console.log(`Processando usuário: ${r.username}`, r);
+            return { 
+              id: r.id, 
+              username: r.username, 
+              email: r.email || '', 
+              role: r.role, 
+              rank: r.rank 
+            };
+          });
+          
+          console.log('Usuários mapeados para exibição:', JSON.stringify(mapped, null, 2));
           setUsers(mapped);
           return;
         } catch (e) {
+          console.error('Erro ao carregar usuários:', e);
           console.warn('Falha ao carregar usuários do Supabase, usando localStorage...', e);
         }
       }
       const saved = localStorage.getItem('22bpm_users_list');
       if (saved) setUsers(JSON.parse(saved));
     };
+    
     load();
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (supabaseReady) {
-      try {
-        const created = await createAppUser({
-          username: formData.username,
-          email: formData.email || null,
-          role: formData.role,
-          rank: formData.rank,
-        });
-        const updated = [...users, { id: created.id, username: created.username, role: created.role, rank: created.rank }];
-        setUsers(updated);
-        setIsAdding(false);
-        setFormData({ username: '', email: '', rank: 'Sd', role: 'USER', password: '' });
-        return;
-      } catch (err) {
-        alert('Falha ao criar usuário no Supabase. Verifique permissões RLS.');
-      }
+    
+    // Validação dos campos obrigatórios
+    if (!formData.username || !formData.role || !formData.rank) {
+      alert('Preencha todos os campos obrigatórios');
+      return;
     }
-    // Fallback localStorage
-    const newUser: User = {
-      id: crypto.randomUUID(),
-      username: formData.username,
-      rank: formData.rank,
-      role: formData.role,
-      password: formData.password
-    };
-    const updated = [...users, newUser];
-    setUsers(updated);
-    localStorage.setItem('22bpm_users_list', JSON.stringify(updated));
-    setIsAdding(false);
-    setFormData({ username: '', email: '', rank: 'Sd', role: 'USER', password: '' });
+    
+    // Validação de e-mail para novos usuários ou edições
+    if (!formData.email) {
+      alert('O e-mail é obrigatório');
+      return;
+    }
+    
+    // Validação do formato do e-mail
+    if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/.test(formData.email)) {
+      alert('O e-mail informado não é válido');
+      return;
+    }
+    
+    try {
+      if (supabaseReady) {
+        if (editingUser) {
+          // Atualizar usuário existente
+          const updatedUser = await updateAppUser(editingUser, {
+            username: formData.username,
+            email: formData.email,
+            role: formData.role,
+            rank: formData.rank,
+          });
+          
+          setUsers(users.map(u => 
+            u.id === editingUser ? { ...u, ...updatedUser } : u
+          ));
+          setEditingUser(null);
+        } else {
+          // Criar novo usuário
+          const created = await createAppUser({
+            username: formData.username,
+            email: formData.email,
+            role: formData.role,
+            rank: formData.rank,
+          });
+          
+          setUsers([...users, {
+            id: created.id,
+            username: created.username,
+            email: created.email || '',
+            role: created.role,
+            rank: created.rank
+          }]);
+        }
+      } else {
+        // Fallback localStorage
+        const newUser: LocalUser = {
+          id: crypto.randomUUID(),
+          username: formData.username,
+          rank: formData.rank,
+          role: formData.role,
+          password: formData.password,
+          email: formData.email
+        };
+        setUsers([...users, newUser]);
+        localStorage.setItem('22bpm_users_list', JSON.stringify([...users, newUser]));
+      }
+      
+      // Limpar formulário
+      setFormData({ username: '', email: '', rank: 'Sd', role: 'USER', password: '' });
+      setIsAdding(false);
+    } catch (err) {
+      console.error('Erro ao salvar usuário:', err);
+      alert('Falha ao salvar usuário. Verifique o console para mais detalhes.');
+    }
   };
 
   const deleteUser = async (id: string) => {
@@ -86,7 +146,7 @@ const UserManagement: React.FC = () => {
     localStorage.setItem('22bpm_users_list', JSON.stringify(updated));
   };
 
-  const startEditUser = (user: User) => {
+  const startEditUser = (user: LocalUser) => {
     setEditingUser(user.id);
     setFormData({
       username: user.username,
@@ -279,7 +339,7 @@ const UserManagement: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 text-white font-bold">{u.rank}</td>
                 <td className="px-6 py-4 text-gray-300 font-mono text-sm">{u.username}</td>
-                <td className="px-6 py-4 text-gray-400 text-sm">{(u as any).email ?? '-'}</td>
+                <td className="px-6 py-4 text-gray-400 text-sm">{u.email || '-'}</td>
                 <td className="px-6 py-4">
                   <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                     u.role === 'ADMIN' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 

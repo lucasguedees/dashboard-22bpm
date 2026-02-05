@@ -140,23 +140,36 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isOpen, on
       <div className="p-4 border-t border-gray-900 bg-gray-900/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3 truncate">
-            <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center font-black text-xs text-white border-2 border-blue-500/30">
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-black text-sm text-white border-2 border-blue-500/30">
               {user.username.charAt(0).toUpperCase()}
             </div>
             <div className="truncate">
-              <p className="text-xs font-black text-white truncate leading-none mb-1">{user.rank} {user.username}</p>
-              <p className={`text-[9px] uppercase font-black tracking-widest ${user.role === 'ADMIN' ? 'text-amber-500' : 'text-gray-500'}`}>
+              <p className="text-xs font-black text-white truncate leading-none">{user.rank} {user.username}</p>
+              <p className={`text-[9px] uppercase font-black tracking-widest ${user.role === 'ADMIN' ? 'text-amber-500' : 'text-blue-400'}`}>
                 {user.role}
               </p>
             </div>
           </div>
-          <button 
-            onClick={onLogout} 
-            className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-            title="Sair do Sistema"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-          </button>
+          <div className="flex items-center space-x-1">
+            <button 
+              onClick={() => setActiveView('USER_PROFILE')}
+              className="p-1.5 text-gray-400 hover:text-blue-400 transition-colors rounded-full hover:bg-gray-800/50"
+              title="Meu Perfil"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </button>
+            <button 
+              onClick={onLogout} 
+              className="p-1.5 text-gray-400 hover:text-red-400 transition-colors rounded-full hover:bg-gray-800/50"
+              title="Sair do Sistema"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </aside>

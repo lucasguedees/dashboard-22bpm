@@ -89,7 +89,7 @@ const AitForm: React.FC<AitFormProps> = ({ onSave, onCancel, initialData }) => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4" onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}>
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-900 p-5 rounded-xl border border-gray-800 shadow-lg">
           <div className="flex flex-col">
             <label className="text-[10px] font-black text-gray-500 uppercase mb-1.5 ml-1">Cidade</label>

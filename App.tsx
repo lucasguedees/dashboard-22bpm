@@ -7,6 +7,7 @@ import ProductivityForm from './components/ProductivityForm';
 import ProductivityDashboard from './components/ProductivityDashboard';
 import DataManagement from './components/DataManagement';
 import UserManagement from './components/UserManagement';
+import UserProfile from './components/UserProfile';
 import Login from './components/Login';
 import { ViewType, TrafficInfraction, ProductivityRecord, User } from './types';
 import { ShieldIcon } from './constants';
@@ -35,8 +36,22 @@ const App: React.FC = () => {
         const savedUsers = localStorage.getItem('22bpm_users_list');
         if (!savedUsers) {
           const defaultUsers: User[] = [
-            { id: '1', username: 'admin', role: 'ADMIN', rank: 'Ten Cel', password: '22' },
-            { id: '2', username: 'comando', role: 'COMANDO', rank: 'Maj', password: '22' }
+            { 
+              id: '1', 
+              username: 'admin', 
+              email: 'admin@22bpm.pm.ba.gov.br',
+              role: 'ADMIN', 
+              rank: 'Ten Cel', 
+              password: '22' 
+            },
+            { 
+              id: '2', 
+              username: 'comando', 
+              email: 'comando@22bpm.pm.ba.gov.br',
+              role: 'COMANDO', 
+              rank: 'Maj', 
+              password: '22' 
+            }
           ];
           localStorage.setItem('22bpm_users_list', JSON.stringify(defaultUsers));
         }
@@ -347,6 +362,8 @@ const App: React.FC = () => {
           isAdmin={user.role === 'ADMIN'} 
           onDelete={deleteInfraction} 
           onEdit={(item) => { setEditingAit(item); setActiveView('AIT_FORM'); }} 
+          userGroup={user.group}
+          userCity={user.city}
         />;
       case 'PRODUCTIVITY_FORM': 
         return <ProductivityForm onSave={saveProductivity} onCancel={() => setActiveView('PRODUCTIVITY_DASHBOARD')} initialData={editingProd || undefined} />;
@@ -356,11 +373,19 @@ const App: React.FC = () => {
           isAdmin={user.role === 'ADMIN'} 
           onDelete={deleteProductivity} 
           onEdit={(item) => { setEditingProd(item); setActiveView('PRODUCTIVITY_FORM'); }} 
+          userGroup={user.group}
+          userCity={user.city}
         />;
       case 'DATA_MANAGEMENT': 
         return <DataManagement infractions={infractions} productivity={productivity} onImport={handleImportAll} />;
       case 'USER_MANAGEMENT': 
         return <UserManagement />;
+      case 'USER_PROFILE':
+        return <UserProfile 
+          user={user} 
+          onUpdate={(updatedUser) => setUser({ ...user, ...updatedUser })} 
+          onLogout={handleLogout} 
+        />;
       default: return null;
     }
   };

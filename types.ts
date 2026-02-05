@@ -4,9 +4,14 @@ export type UserRole = 'ADMIN' | 'COMANDO' | 'USER';
 export interface User {
   id: string;
   username: string;
+  email: string;
   role: UserRole;
   rank: string; // Posto/Graduação
+  city?: string; // Cidade de atuação
+  group?: string; // Grupo (1ª CIA, 2ª CIA, 3ª CIA)
   password?: string; // Armazenado para autenticação local
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface TrafficInfraction {
@@ -22,7 +27,7 @@ export interface TrafficInfraction {
   timestamp: number;
 }
 
-export type ViewType = 'AIT_FORM' | 'AIT_DASHBOARD' | 'PRODUCTIVITY_FORM' | 'PRODUCTIVITY_DASHBOARD' | 'HOME' | 'DATA_MANAGEMENT' | 'USER_MANAGEMENT';
+export type ViewType = 'AIT_FORM' | 'AIT_DASHBOARD' | 'PRODUCTIVITY_FORM' | 'PRODUCTIVITY_DASHBOARD' | 'HOME' | 'DATA_MANAGEMENT' | 'USER_MANAGEMENT' | 'USER_PROFILE';
 
 export interface ProductivityRecord {
   id: string;
