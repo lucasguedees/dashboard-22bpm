@@ -741,7 +741,7 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
       
       // Calcular totais para a cidade com verificações de segurança
       const result = {
-        name: `${city} - ${monthName} ${yearDisplay}`.trim(),
+        name: `${city}\n${monthName} ${yearDisplay}`.trim(),
         BA: cityRecords.reduce((sum, d) => sum + (d?.ba || 0), 0),
         COP: cityRecords.reduce((sum, d) => sum + (d?.cop || 0), 0),
         TC: cityRecords.reduce((sum, d) => sum + (d?.tc || 0), 0),
@@ -775,6 +775,23 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
       fugitives: yearData.reduce((s, d) => s + d.fugitives, 0),
     };
   }, [data, selectedYear]);
+
+  // Componente personalizado para renderizar os rótulos do eixo X com quebra de linha
+  const CustomizedAxisTick = (props: any) => {
+    const { x, y, payload } = props;
+    const [city, ...period] = payload.value.split('\n');
+    
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#9ca3af" fontSize={10}>
+          {city}
+        </text>
+        <text x={0} y={0} dy={30} textAnchor="middle" fill="#6b7280" fontSize={9}>
+          {period.join('\n')}
+        </text>
+      </g>
+    );
+  };
 
   // Função para renderizar os filtros de ano e mês
   const renderYearMonthFilters = (
@@ -1439,7 +1456,14 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={getChartData(selectedYear, monthFilterProc)} margin={{ top: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                  <XAxis dataKey="name" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
+                  <XAxis 
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                    height={60}
+                    tick={<CustomizedAxisTick />}
+                  />
                   <YAxis stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.25)]} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} />
                   <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px' }} />
@@ -1471,7 +1495,14 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={getChartData(selectedYear, monthFilterPrev)} margin={{ top: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                  <XAxis dataKey="name" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
+                  <XAxis 
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                    height={60}
+                    tick={<CustomizedAxisTick />}
+                  />
                   <YAxis stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.25)]} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} />
                   <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px' }} />
@@ -1503,7 +1534,14 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={getChartData(selectedYear, monthFilterRepr)} margin={{ top: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                  <XAxis dataKey="name" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
+                  <XAxis 
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                    height={60}
+                    tick={<CustomizedAxisTick />}
+                  />
                   <YAxis stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.25)]} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} />
                   <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px' }} />
