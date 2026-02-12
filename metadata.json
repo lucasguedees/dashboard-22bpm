@@ -1,0 +1,8 @@
+{
+  "name": "Dashboard 22º BPM",
+  "description": "Sistema de gestão e análise de dados operacionais para o 22º Batalhão de Polícia Militar.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
