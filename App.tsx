@@ -353,7 +353,7 @@ const App: React.FC = () => {
           <div className="flex flex-col items-center justify-center h-full text-center p-4 animate-fadeIn">
             <ShieldIcon className="w-40 h-40 md:w-56 md:h-56 mb-8 text-blue-600 drop-shadow-[0_0_30px_rgba(30,64,175,0.4)]" />
             <h1 className="text-3xl md:text-5xl font-black mb-2 text-white uppercase tracking-tighter">22º Batalhão de Polícia Militar</h1>
-            <p className="text-blue-400 font-bold mb-8 uppercase text-sm tracking-widest">{user.rank.toUpperCase()} PM {user.username.toUpperCase()}</p>
+            <p className="text-blue-400 font-bold mb-8 uppercase text-sm tracking-widest">{user.rank} PM {user.username}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
               <button onClick={() => handleNavigate('AIT_DASHBOARD')} className="p-6 bg-gray-900 border border-gray-800 rounded-2xl hover:border-blue-500 transition-all text-left group shadow-lg">
                 <h3 className="text-white font-bold mb-1 group-hover:text-blue-400 transition-colors">Painel Trânsito</h3>

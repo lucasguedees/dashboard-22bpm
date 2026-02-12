@@ -270,12 +270,9 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
     }
   }, [userGroup, userCity]);
 
-  // Filtros de ano e mês para cada gráfico
-  const [yearFilterProc, setYearFilterProc] = useState<string>('all');
+  // Filtros de mês para cada gráfico
   const [monthFilterProc, setMonthFilterProc] = useState<string>('all');
-  const [yearFilterPrev, setYearFilterPrev] = useState<string>('all');
   const [monthFilterPrev, setMonthFilterPrev] = useState<string>('all');
-  const [yearFilterRepr, setYearFilterRepr] = useState<string>('all');
   const [monthFilterRepr, setMonthFilterRepr] = useState<string>('all');
 
   // Filtro de dados base para a tabela e resumo dinâmico
@@ -283,10 +280,8 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
     return data.filter(d => selectedCities.includes(d.city) && d.year.toString() === selectedYear);
   }, [data, selectedCities, selectedYear]);
 
-  // Estados para controle do ano em cada gráfico
-  const [yearProc, setYearProc] = useState(selectedYear);
-  const [yearPrev, setYearPrev] = useState(selectedYear);
-  const [yearRepr, setYearRepr] = useState(selectedYear);
+  // Usamos selectedYear diretamente para todos os gráficos
+  // Isso garante que todos os gráficos sigam o filtro principal
 
 /*   // Função para exportar para PDF
   const exportToPDF = async () => {
@@ -752,7 +747,7 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
         TC: cityRecords.reduce((sum, d) => sum + (d?.tc || 0), 0),
         Prisões: cityRecords.reduce((sum, d) => sum + (d?.arrests || 0), 0),
         Armas: cityRecords.reduce((sum, d) => sum + (d?.weapons || 0), 0),
-        Drogas: parseFloat(cityRecords.reduce((sum, d) => sum + (d?.drugsKg || 0), 0).toFixed(1)),
+        Drogas: parseFloat(cityRecords.reduce((sum, d) => sum + (d?.drugsKg || 0), 0).toFixed(3)),
         Abordagens: cityRecords.reduce((sum, d) => sum + (d?.peopleApproached || 0), 0),
         'Veículos': cityRecords.reduce((sum, d) => sum + (d?.vehiclesInspected || 0), 0),
         Foragidos: cityRecords.reduce((sum, d) => sum + (d?.fugitives || 0), 0)
@@ -783,22 +778,19 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
 
   // Função para renderizar os filtros de ano e mês
   const renderYearMonthFilters = (
-    yearValue: string,
-    onYearChange: (value: string) => void,
     monthValue: string,
     onMonthChange: (value: string) => void
   ) => (
     <div className="flex gap-2">
       <select
-        value={yearValue}
+        value={selectedYear}
         onChange={(e) => {
           e.stopPropagation();
-          onYearChange(e.target.value);
+          setSelectedYear(e.target.value);
         }}
         className="bg-gray-800 text-[10px] font-bold text-gray-300 border border-gray-700 rounded-lg px-3 py-2 outline-none cursor-pointer"
         onClick={(e) => e.stopPropagation()}
       >
-        <option value="all">Todos os anos</option>
         {availableYears.map((year) => (
           <option key={year.value} value={year.value}>
             {year.label}
@@ -813,7 +805,7 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
         }}
         className="bg-gray-800 text-[10px] font-bold text-gray-300 border border-gray-700 rounded-lg px-3 py-2 outline-none cursor-pointer"
         onClick={(e) => e.stopPropagation()}
-        disabled={yearValue === 'all'}
+        disabled={selectedYear === 'all'}
       >
         {availableMonths.map((month) => {
           const monthNum = parseInt(month.value, 10);
@@ -1364,7 +1356,11 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
           <StatMiniCard label="TC" value={battalionTotals.tc} />
           <StatMiniCard label="Prisões" value={battalionTotals.arrests} colorClass="text-emerald-400" />
           <StatMiniCard label="Armas" value={battalionTotals.weapons} colorClass="text-red-400" />
-          <StatMiniCard label="Drogas" value={`${battalionTotals.drugs.toFixed(1)}kg`} colorClass="text-emerald-500" />
+          <StatMiniCard 
+            label="Drogas" 
+            value={`${battalionTotals.drugs === 0 ? '0' : (battalionTotals.drugs < 1 ? battalionTotals.drugs.toFixed(3) : battalionTotals.drugs.toFixed(1))}kg`} 
+            colorClass="text-emerald-500" 
+          />
           <StatMiniCard label="Foragidos" value={battalionTotals.fugitives} colorClass="text-amber-400" />
           <StatMiniCard label="Abordagens" value={battalionTotals.people} colorClass="text-blue-400" />
           <StatMiniCard label="Veículos" value={battalionTotals.vehicles} colorClass="text-indigo-400" />
@@ -1415,7 +1411,11 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
             <StatMiniCard label="TC" value={selectedTotals.tc} />
             <StatMiniCard label="Prisões" value={selectedTotals.arrests} colorClass="text-emerald-400" />
             <StatMiniCard label="Armas" value={selectedTotals.weapons} colorClass="text-red-400" />
-            <StatMiniCard label="Drogas" value={`${selectedTotals.drugs.toFixed(1)}kg`} colorClass="text-emerald-500" />
+            <StatMiniCard 
+              label="Drogas" 
+              value={`${selectedTotals.drugs === 0 ? '0' : (selectedTotals.drugs < 1 ? selectedTotals.drugs.toFixed(3) : selectedTotals.drugs.toFixed(1))}kg`} 
+              colorClass="text-emerald-500" 
+            />
             <StatMiniCard label="Foragidos" value={selectedTotals.fugitives} colorClass="text-amber-400" />
             <StatMiniCard label="Abordagens" value={selectedTotals.people} colorClass="text-blue-400" />
             <StatMiniCard label="Veículos" value={selectedTotals.vehicles} colorClass="text-indigo-400" />
@@ -1430,8 +1430,6 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
             title="Procedimentos Administrativos"
             action={
               renderYearMonthFilters(
-                yearFilterProc,
-                setYearFilterProc,
                 monthFilterProc,
                 setMonthFilterProc
               )
@@ -1439,7 +1437,7 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
           >
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={getChartData(yearFilterProc, monthFilterProc)} margin={{ top: 20 }}>
+                <BarChart data={getChartData(selectedYear, monthFilterProc)} margin={{ top: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
                   <XAxis dataKey="name" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.25)]} />
@@ -1464,8 +1462,6 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
             title="Atividades Preventivas"
             action={
               renderYearMonthFilters(
-                yearFilterPrev,
-                setYearFilterPrev,
                 monthFilterPrev,
                 setMonthFilterPrev
               )
@@ -1473,7 +1469,7 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
           >
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={getChartData(yearFilterPrev, monthFilterPrev)} margin={{ top: 20 }}>
+                <BarChart data={getChartData(selectedYear, monthFilterPrev)} margin={{ top: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
                   <XAxis dataKey="name" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.25)]} />
@@ -1498,8 +1494,6 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
             title="Repressão e Apreensões"
             action={
               renderYearMonthFilters(
-                yearFilterRepr,
-                setYearFilterRepr,
                 monthFilterRepr,
                 setMonthFilterRepr
               )
@@ -1507,7 +1501,7 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
           >
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={getChartData(yearFilterRepr, monthFilterRepr)} margin={{ top: 20 }}>
+                <BarChart data={getChartData(selectedYear, monthFilterRepr)} margin={{ top: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
                   <XAxis dataKey="name" stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="#4b5563" fontSize={10} tickLine={false} axisLine={false} domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.25)]} />
