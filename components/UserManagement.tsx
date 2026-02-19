@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { supabase } from '../lib/supabase';
-import { supabaseReady, listAppUsers, createAppUser, deleteAppUser, updateAppUser } from '../lib/api';
+import { supabaseReady, listAppUsers, createAppUser, deleteAppUser, updateAppUser, updateUserPassword } from '../lib/api';
 
 const UserManagement: React.FC = () => {
   // Tipo local para usuários com todos os campos necessários
   type LocalUser = {
     id: string;
+    auth_user_id: string;
     username: string;
     email?: string;
     role: UserRole;
@@ -17,6 +18,41 @@ const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<LocalUser[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [resettingPasswordFor, setResettingPasswordFor] = useState<{id: string, username: string} | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  
+  const handleResetPassword = async () => {
+    if (!resettingPasswordFor) return;
+  
+    if (newPassword.length < 6) {
+      setPasswordError('A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+  
+    if (newPassword !== confirmPassword) {
+      setPasswordError('As senhas não conferem');
+      return;
+    }
+  
+    try {
+      await updateUserPassword(resettingPasswordFor.id, newPassword);
+  
+      alert(`✅ Senha do usuário ${resettingPasswordFor.username} alterada com sucesso!`);
+  
+      setResettingPasswordFor(null);
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordError('');
+  
+    } catch (error: any) {
+      console.error('Erro ao redefinir senha:', error);
+      setPasswordError(error.message || 'Erro ao redefinir senha');
+    }
+  };
+  
+
   const [formData, setFormData] = useState<{
     username: string;
     email: string;
@@ -77,6 +113,7 @@ const UserManagement: React.FC = () => {
           
           const mapped = rows.map(r => ({
             id: r.id,
+            auth_user_id: r.auth_user_id,
             username: r.username,
             email: r.email,
             role: r.role,
@@ -103,98 +140,68 @@ const UserManagement: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação dos campos obrigatórios
-    if (!formData.username || !formData.role || !formData.rank || !formData.city || !formData.group) {
-      alert('Preencha todos os campos obrigatórios');
-      return;
-    }
-    
-    // Validação de e-mail para novos usuários ou edições
-    if (!formData.email) {
-      alert('O e-mail é obrigatório');
-      return;
-    }
-    
-    // Validação do formato do e-mail
-    if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/.test(formData.email)) {
-      alert('O e-mail informado não é válido');
-      return;
-    }
-    
     try {
-      if (supabaseReady) {
-        if (editingUser) {
-          // Atualizar usuário existente
-          const updatedUser = await updateAppUser(editingUser, {
+      if (!supabaseReady) {
+        throw new Error('Conexão com o banco de dados não está pronta');
+      }
+
+      // Validação dos campos obrigatórios
+      if (!formData.username || !formData.email || !formData.password) {
+        alert('Preencha todos os campos obrigatórios');
+        return;
+      }
+
+      // Validação do formato do e-mail
+      if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/.test(formData.email)) {
+        alert('O e-mail informado não é válido');
+        return;
+      }
+
+      // Validação da senha
+      if (formData.password.length < 6) {
+        alert('A senha deve ter pelo menos 6 caracteres');
+        return;
+      }
+
+      // 1. Primeiro, criar o usuário no Auth
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
             username: formData.username,
-            email: formData.email,
             role: formData.role,
             rank: formData.rank,
             city: formData.city,
             group: formData.group
-          });
-          
-          setUsers(users.map(u => 
-            u.id === editingUser ? { ...u, ...updatedUser } : u
-          ));
-          setEditingUser(null);
-        } else {
-          // Criar novo usuário
-          // Primeiro, criamos o usuário no Supabase Auth para obter o ID
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: formData.email,
-            password: formData.password,
-            options: {
-              data: {
-                username: formData.username,
-                role: formData.role,
-                rank: formData.rank,
-                city: formData.city,
-                group: formData.group
-              }
-            }
-          });
-
-          if (authError) throw authError;
-          if (!authData.user) throw new Error('Falha ao criar usuário de autenticação');
-
-          // Depois, criamos o perfil do usuário no banco de dados
-          const created = await createAppUser({
-            username: formData.username,
-            email: formData.email,
-            role: formData.role,
-            rank: formData.rank,
-            city: formData.city,
-            group: formData.group,
-          });
-          
-          setUsers([...users, {
-            id: created.id,
-            username: created.username,
-            email: created.email || '',
-            role: formData.role,
-            rank: created.rank,
-            city: formData.city || '',
-            group: formData.group || ''
-          }]);
+          }
         }
-      } else {
-        // Fallback localStorage
-        const newUser: LocalUser = {
-          id: crypto.randomUUID(),
+      });
+
+      if (signUpError) throw signUpError;
+      if (!authData.user) throw new Error('Falha ao criar usuário de autenticação');
+
+      // 2. Depois, criar o perfil do usuário na tabela app_users
+      const { data: profileData, error: profileError } = await supabase
+        .from('app_users')
+        .insert([{
+          auth_user_id: authData.user.id,
           username: formData.username,
           email: formData.email,
-          rank: formData.rank,
           role: formData.role,
+          rank: formData.rank,
           city: formData.city,
           group: formData.group
-        };
-        const updatedUsers = [...users, newUser];
-        setUsers(updatedUsers);
-        localStorage.setItem('22bpm_users_list', JSON.stringify(updatedUsers));
-      }
+        }])
+        .select();
+
+      if (profileError) throw profileError;
+
+      // Atualiza a lista de usuários
+      const updatedUsers = await listAppUsers();
+      setUsers(updatedUsers);
       
-      // Limpar formulário
+      // Limpa o formulário
       setFormData({ 
         username: '', 
         email: '', 
@@ -205,28 +212,28 @@ const UserManagement: React.FC = () => {
         group: ''
       });
       setIsAdding(false);
-    } catch (err) {
-      console.error('Erro ao salvar usuário:', err);
-      alert('Falha ao salvar usuário. Verifique o console para mais detalhes.');
+      
+      alert('Usuário criado com sucesso! Um e-mail de confirmação foi enviado.');
+    } catch (error) {
+      console.error('Erro ao criar usuário:', error);
+      alert(`Erro ao criar usuário: ${error.message}`);
     }
   };
 
-  const deleteUser = async (id: string) => {
-    if (!confirm("Deseja realmente remover este usuário?")) return;
-    if (supabaseReady) {
-      try {
-        await deleteAppUser(id);
-        setUsers(prev => prev.filter(u => u.id !== id));
-        return;
-      } catch (err) {
-        alert('Falha ao remover usuário no Supabase.');
-        return;
-      }
+  const deleteUser = async (userId: string) => {
+    try {
+      await deleteAppUser(userId);
+  
+      setUsers(prev =>
+        prev.filter(u => u.id !== userId)
+      );
+  
+      alert("Usuário excluído com sucesso");
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao excluir usuário");
     }
-    const updated = users.filter(u => u.id !== id);
-    setUsers(updated);
-    localStorage.setItem('22bpm_users_list', JSON.stringify(updated));
-  };
+  };  
 
   const startEditUser = (user: LocalUser) => {
     setEditingUser(user.id);
@@ -495,16 +502,29 @@ const UserManagement: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                       </svg>
                     </button>
+                    <button 
+                      onClick={() => setResettingPasswordFor({ id: u.id, username: u.username })}
+                      className="text-yellow-500 hover:text-yellow-400 transition-colors p-2"
+                      title="Redefinir senha"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                      </svg>
+                    </button>
                     {u.username !== 'comando' && (
                       <button 
-                        onClick={() => deleteUser(u.id)}
-                        className="text-gray-600 hover:text-red-500 transition-colors p-2"
-                        title="Remover usuário"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                      </button>
+                      onClick={() => {
+                        if (window.confirm(`Tem certeza que deseja excluir o usuário ${u.username}?`)) {
+                          deleteUser(u.auth_user_id);
+                        }
+                      }}
+                      className="text-gray-600 hover:text-red-500 transition-colors p-2"
+                      title="Remover usuário"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
                     )}
                   </div>
                 </td>
@@ -513,6 +533,75 @@ const UserManagement: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Modal de redefinição de senha */}
+      {resettingPasswordFor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 p-6 rounded-lg shadow-xl w-96 border border-gray-700">
+            <h3 className="text-lg font-bold text-white mb-4">
+              Redefinir senha para {resettingPasswordFor.username}
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Nova senha
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Digite a nova senha"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Confirmar senha
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Confirme a nova senha"
+                />
+              </div>
+              
+              {passwordError && (
+                <div className="text-red-500 text-sm">{passwordError}</div>
+              )}
+              
+              <div className="flex justify-end space-x-3 pt-2">
+                <button
+                  onClick={() => {
+                    setResettingPasswordFor(null);
+                    setNewPassword('');
+                    setConfirmPassword('');
+                    setPasswordError('');
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleResetPassword}
+                  className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                >
+                  Salvar senha
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

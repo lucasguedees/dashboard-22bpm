@@ -35,4 +35,52 @@ if (finalUrl && finalAnon) {
   console.error('❌ Supabase não configurado - missing URL and ANON_KEY');
 }
 
-export { supabase, usingFallback };
+// Função para testar a conexão com o Supabase
+async function testSupabaseConnection() {
+  if (!supabase) {
+    console.error('Supabase não está inicializado');
+    return { success: false, error: 'Supabase não está inicializado' };
+  }
+
+  try {
+    console.log('Testando conexão com o Supabase...');
+    
+    // Tenta uma consulta simples para testar a conexão
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('*')
+      .limit(1);
+    
+    if (error) {
+      console.error('Erro ao conectar ao Supabase:', error);
+      return { 
+        success: false, 
+        error: `Erro ao conectar: ${error.message}`,
+        details: error
+      };
+    }
+    
+    console.log('Conexão com Supabase bem-sucedida!');
+    return { 
+      success: true, 
+      message: 'Conexão bem-sucedida!',
+      data: data
+    };
+  } catch (err) {
+    console.error('Erro inesperado ao testar conexão:', err);
+    return { 
+      success: false, 
+      error: `Erro inesperado: ${err instanceof Error ? err.message : String(err)}`,
+      details: err
+    };
+  }
+}
+
+// Testar a conexão quando o módulo for carregado
+if (typeof window !== 'undefined') {
+  testSupabaseConnection().then(result => {
+    console.log('Resultado do teste de conexão:', result);
+  });
+}
+
+export { supabase, usingFallback, testSupabaseConnection };

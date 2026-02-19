@@ -1,4 +1,4 @@
-﻿-- Supabase schema for 22Âº BPM dashboard
+-- Supabase schema for 22Âº BPM dashboard
 create extension if not exists "uuid-ossp";
 create extension if not exists "pgcrypto";
 

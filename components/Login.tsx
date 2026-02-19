@@ -2,8 +2,9 @@
 import React, { useState, useRef } from 'react';
 import { User } from '../types';
 import { ShieldIcon } from '../constants';
-import { supabase, usingFallback } from '../lib/supabase';
-import { getOrCreateAppUser, getAppUser, createUserProfile } from '../lib/api';
+import { supabase, usingFallback } from '@/lib/supabase';
+import { getAppUser } from '../lib/api';
+
 
 interface LoginProps {
   onLogin: (user: User, rememberMe?: boolean) => void;
@@ -37,146 +38,84 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+  
     try {
       console.log('=== LOGIN SUBMIT START ===');
-      console.log('Email:', email);
-      
+  
       if (!supabase) throw new Error('Supabase não configurado');
       if (!email.includes('@')) throw new Error('Informe um e-mail válido.');
-
-      // Tenta login
-      console.log('Attempting Supabase signInWithPassword...');
-      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
-      
-      console.log('signInErr:', signInErr);
-      console.log('signInData:', signInData);
-      
-      if (signInErr) throw signInErr;
-      if (!signInData.user?.id) throw new Error('Falha na autenticação.');
-
-      console.log('Auth successful, user ID:', signInData.user.id);
-
-      // Busca perfil existente em app_users (não cria automaticamente)
-      console.log('Looking for app_user profile...');
-      const profile = await getAppUser(signInData.user.id);
-      console.log('Profile result:', profile);
-      
+  
+      // LOGIN NO AUTH
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+  
+      if (error) throw error;
+      if (!data.user?.id) throw new Error('Falha na autenticação.');
+  
+      console.log('Auth OK, ID:', data.user.id);
+  
+      // BUSCA PERFIL PELO ID (id === auth.users.id)
+      const profile = await getAppUser(data.user.id);
+  
+      console.log('Profile:', profile);
+  
       if (!profile) {
-        console.log('No profile found, throwing error');
-        throw new Error('Usuário não encontrado. Faça o cadastro primeiro.');
+        throw new Error('Perfil não encontrado. Faça o cadastro primeiro.');
       }
-      
-      console.log('Profile found, logging in...');
+  
       onLogin(profile, rememberMe);
+  
       console.log('=== LOGIN SUBMIT END ===');
+  
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err?.message || 'Falha na autenticação.');
+    } finally {
       setLoading(false);
     }
-  };
+  };  
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setRegisterLoading(true);
     setRegisterError('');
     setSuccessMessage('');
-    setRegisterLoading(true);
-
+  
     try {
-      if (!supabase) throw new Error('Supabase não configurado');
-      
-      // Validações
+      if (!registerName.trim()) throw new Error('Informe seu nome completo.');
       if (!registerEmail.includes('@')) throw new Error('Informe um e-mail válido.');
       if (registerPassword.length < 6) throw new Error('A senha deve ter pelo menos 6 caracteres.');
       if (registerPassword !== confirmPassword) throw new Error('As senhas não coincidem.');
-      if (!registerName.trim()) throw new Error('Informe seu nome completo.');
-
-      // Verificar se usuário já existe no Supabase Auth
-      console.log('=== REGISTRATION START ===');
-      console.log('Environment:', import.meta.env.MODE);
-      console.log('Supabase available:', !!supabase);
-      console.log('Using fallback:', usingFallback);
-      console.log('Email:', registerEmail);
-      console.log('Checking if user exists in Supabase Auth...');
-      
-      if (!supabase) {
-        throw new Error('Supabase não está configurado no ambiente de produção');
-      }
-      
-      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ 
-        email: registerEmail, 
-        password: registerPassword 
+  
+      // SOMENTE signup
+      // Trigger cria app_users automaticamente
+      const { error } = await supabase.auth.signUp({
+        email: registerEmail,
+        password: registerPassword,
       });
-      
-      console.log('SignIn error:', signInErr?.message);
-      console.log('SignIn data:', signInData?.user?.id ? 'User found' : 'No user');
-      
-      if (signInErr?.message.includes('Invalid login credentials')) {
-        // Usuário não existe no Auth, pode criar novo
-        console.log('User not found in Auth, creating new account...');
-        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ 
-          email: registerEmail, 
-          password: registerPassword 
-        });
-        
-        console.log('SignUp error:', signUpErr?.message);
-        console.log('SignUp data:', signUpData?.user?.id ? 'User created' : 'No user');
-        
-        if (signUpErr) throw signUpErr;
-        if (!signUpData.user?.id) throw new Error('Falha ao criar conta.');
-
-        // Criar perfil em app_users
-        console.log('Creating profile for new user...');
-        const profile = await createUserProfile(signUpData.user.id, registerName, registerEmail, registerRank);
-        console.log('Profile created:', profile);
-        
-        setSuccessMessage('Conta criada com sucesso! Você já pode fazer login.');
-      } else if (!signInErr && signInData.user?.id) {
-        // Usuário existe no Auth mas não tem perfil, criar apenas o perfil
-        console.log('User exists in Auth, creating profile only...');
-        console.log('Auth user ID:', signInData.user.id);
-        
-        const profile = await createUserProfile(signInData.user.id, registerName, registerEmail, registerRank);
-        console.log('Profile created for existing user:', profile);
-        
-        setSuccessMessage('Perfil criado com sucesso! Você já pode fazer login.');
-        
-        // Fazer logout para limpar a sessão
-        await supabase.auth.signOut();
-        console.log('Logged out after profile creation');
-      } else {
-        console.error('Unexpected error:', signInErr);
-        throw signInErr || new Error('Erro ao verificar usuário existente');
-      }
-      
-      setRegisterLoading(false);
-      
-      // Limpar formulário
+  
+      if (error) throw error;
+  
+      setSuccessMessage('Conta criada com sucesso! Você já pode fazer login.');
+  
       setRegisterEmail('');
       setRegisterPassword('');
       setConfirmPassword('');
       setRegisterName('');
       setRegisterRank('Sd');
-      
-      // Mudar para aba de login após 2 segundos
-      setTimeout(() => {
-        setActiveTab('login');
-        setEmail(registerEmail);
-        setPassword(registerPassword);
-      }, 2000);
-      
+  
+      setTimeout(() => setActiveTab('login'), 2000);
+  
     } catch (err: any) {
-      console.error('=== REGISTRATION ERROR ===');
-      console.error('Error type:', typeof err);
-      console.error('Error message:', err?.message);
-      console.error('Error details:', err);
-      console.error('=== END REGISTRATION ERROR ===');
-      
-      setRegisterError(err?.message || 'Falha no cadastro.');
+      setRegisterError(err?.message || 'Erro ao cadastrar.');
+    } finally {
       setRegisterLoading(false);
     }
   };
-
+  
+  
   return (
     <div className="h-screen w-full bg-gray-950 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/10 via-transparent to-transparent opacity-50 pointer-events-none"></div>
@@ -469,4 +408,4 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   );
 };
 
-export default Login;
+export default Login; 
