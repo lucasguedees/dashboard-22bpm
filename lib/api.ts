@@ -18,7 +18,7 @@ export interface AppUserRow {
 export const getAppUser = async (userId: string) => {
   const { data, error } = await supabase
     .from('app_users')
-    .select('*')
+    .select('id, auth_user_id, username, email, role, rank, city, group')
     .eq('auth_user_id', userId)
     .maybeSingle();
 
@@ -95,26 +95,7 @@ async function getCurrentProfileId(): Promise<string | null> {
 // -------- App Users CRUD (for UserManagement) --------
 
 // Função para atualizar o e-mail de um usuário
-export async function updateUserEmail(userId: string, email: string): Promise<AppUserRow & { city?: string | null; group?: string | null }> {
-  if (!supabase) throw new Error('Supabase not configured');
 
-  console.log(`Atualizando e-mail do usuário ${userId} para:`, email);
-
-  const { data, error } = await supabase
-    .from('app_users')
-    .update({ email })
-    .eq('auth_user_id', userId)
-    .select('id, username, email, role, rank, city, group')
-    .single();
-
-  if (error) {
-    console.error('Erro ao atualizar e-mail:', error);
-    throw error;
-  }
-
-  console.log('E-mail atualizado com sucesso:', data);
-  return data as AppUserRow & { city?: string | null; group?: string | null };
-}
 
 export async function listAppUsers(): Promise<AppUserRow[]> {
   if (!supabase) throw new Error('Supabase not configured');
@@ -206,27 +187,7 @@ export async function updateUserPassword(userId: string, newPassword: string) {
 
 
 
-export async function updateAppUser(
-  id: string,
-  patch: Partial<{
-    username: string;
-    email: string | null;
-    role: User['role'];
-    rank: string;
-    city?: string | null;
-    group?: string | null;
-  }>
-): Promise<AppUserRow & { city?: string | null; group?: string | null }> {
-  if (!supabase) throw new Error('Supabase not configured');
-  const { data, error } = await supabase
-    .from('app_users')
-    .update(patch)
-    .eq('auth_user_id', id)
-    .select('id, username, email, role, rank, city, group')
-    .single();
-  if (error) throw error;
-  return data as AppUserRow & { city?: string | null; group?: string | null };
-}
+
 
 export async function deleteAppUser(id: string): Promise<void> {
   const { error } = await supabase.functions.invoke("delete-user", {
@@ -412,4 +373,39 @@ export async function getOrCreateAppUser(authUserId: string, username: string, e
   console.log('Usuário não encontrado, criando novo perfil');
   // Se não existir, cria um novo perfil
   return createUserProfile(authUserId, username, email, rank, role);
+}
+export async function updateAppUserAdmin(userId: string, updates: any) {
+  const res = await fetch(
+    "https://jqtwqttcuaegutdbavzz.supabase.co/functions/v1/update-user",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
+        userId,
+        updates,
+      }),
+    }
+  );
+
+  const json = await res.json();
+
+  if (!res.ok) throw new Error(json.error);
+
+  return json;
+}
+export async function updateAppUser(
+  userId: string,
+  updates: any,
+) {
+  return updateAppUserAdmin(userId, updates);
+}
+
+export async function updateUserEmail(
+  userId: string,
+  email: string
+) {
+  return updateAppUserAdmin(userId, { email });
 }

@@ -3,6 +3,7 @@ export type UserRole = 'ADMIN' | 'COMANDO' | 'USER';
 
 export interface User {
   id: string;
+  auth_user_id: string;   // id do Supabase Auth  ← ADICIONE ISTO
   username: string;
   email: string;
   role: UserRole;
