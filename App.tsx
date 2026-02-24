@@ -38,6 +38,7 @@ const App: React.FC = () => {
           const defaultUsers: User[] = [
             { 
               id: '1', 
+              auth_user_id: 'local-admin',
               username: 'admin', 
               email: 'admin@22bpm.pm.ba.gov.br',
               role: 'ADMIN', 
@@ -46,6 +47,7 @@ const App: React.FC = () => {
             },
             { 
               id: '2', 
+              auth_user_id: 'local-comando',
               username: 'comando', 
               email: 'comando@22bpm.pm.ba.gov.br',
               role: 'COMANDO', 
