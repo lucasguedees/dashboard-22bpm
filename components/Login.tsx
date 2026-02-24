@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { User } from '../types';
 import { ShieldIcon } from '../constants';
-import { supabase, usingFallback } from '@/lib/supabase';
+import { supabase, usingFallback } from '../lib/supabase';
 import { getAppUser } from '../lib/api';
 
 

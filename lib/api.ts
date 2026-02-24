@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 import type { TrafficInfraction, ProductivityRecord, User } from '../types';
 
 export const supabaseReady = !!supabase;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { supabase } from '../lib/supabase';
+import { updateAppUserAdmin } from '../lib/api';
 
 // Definição dos grupos e cidades correspondentes
 const CITY_GROUPS = {
@@ -27,7 +28,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout }) =
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  
+
   const [formData, setFormData] = useState({
     username: user.username,
     email: user.email || '',
@@ -38,7 +39,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout }) =
     city: user.city || '',
     group: user.group || ''
   });
-  
+
   // Encontra o grupo baseado na cidade selecionada
   const findGroupByCity = (cityName: string): string => {
     if (!cityName) return '';
@@ -49,7 +50,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout }) =
     }
     return '';
   };
-  
+
   // Atualiza o grupo quando a cidade muda
   useEffect(() => {
     if (formData.city) {
@@ -60,26 +61,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout }) =
 
   useEffect(() => {
     console.log('User data received in UserProfile:', user);
-    
-    // Verificar estrutura da tabela ao carregar o componente
-    const checkTableStructure = async () => {
-      try {
-        const { data: columns, error } = await supabase
-          .rpc('get_table_columns', { table_name: 'app_users' });
-          
-        if (error) {
-          console.error('Erro ao verificar estrutura da tabela:', error);
-          return;
-        }
-        
-        console.log('Colunas da tabela app_users:', columns);
-      } catch (err) {
-        console.error('Erro ao verificar estrutura da tabela:', err);
-      }
-    };
-    
-    checkTableStructure();
-    
+
+
     // Atualizar o estado do formulário com os dados do usuário
     const updatedFormData = {
       username: user.username || '',
@@ -91,7 +74,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout }) =
       city: user.city || '',
       group: user.group || ''
     };
-    
+
     console.log('Updating form data with:', updatedFormData);
     setFormData(updatedFormData);
   }, [user]);
@@ -115,7 +98,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout }) =
         if (formData.newPassword !== formData.confirmPassword) {
           throw new Error('As senhas não coincidem');
         }
-        
+
         const { error: updateError } = await supabase.auth.updateUser({
           password: formData.newPassword
         });
@@ -132,40 +115,28 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout }) =
         updated_at: new Date().toISOString()
       };
 
-      console.log('Atualizando perfil com os seguintes dados:', updates);
-      
-      const { data: updatedUser, error: profileError } = await supabase
-        .from('app_users')
-        .update(updates)
-        .eq('id', user.id)
-        .select('id, username, email, role, rank, city, group')
-        .single();
+      console.log('Atualizando perfil com:', updates);
 
-      console.log('Resposta da atualização:', { updatedUser, profileError });
-      
-      if (profileError) {
-        console.error('Erro detalhado ao atualizar perfil:', {
-          message: profileError.message,
-          details: profileError.details,
-          hint: profileError.hint,
-          code: profileError.code
-        });
-        throw profileError;
-      }
+      const updatedUser = await updateAppUserAdmin(
+        user.auth_user_id,   // 🔥 CORRETO
+        updates
+      );
+
+      console.log('Resposta da atualização:', updatedUser);
 
       // Atualizar estado do usuário
       onUpdate({
         ...user,
-        ...updates
+        ...updatedUser
       });
 
       setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
       setEditing(false);
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error);
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Erro ao atualizar perfil' 
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Erro ao atualizar perfil'
       });
     } finally {
       setLoading(false);
@@ -187,7 +158,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout }) =
       </div>
 
       {message && (
-        <div 
+        <div
           className={`mb-6 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-900/50 border border-green-800' : 'bg-red-900/50 border border-red-800'}`}
         >
           <p className={`text-sm ${message.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
@@ -344,8 +315,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout }) =
             <div>
               <p className="text-sm text-gray-400">Nível de Acesso</p>
               <p className="text-white font-medium">
-                {user.role === 'ADMIN' ? 'Administrador' : 
-                 user.role === 'COMANDO' ? 'Comando' : 'Usuário'}
+                {user.role === 'ADMIN' ? 'Administrador' :
+                  user.role === 'COMANDO' ? 'Comando' : 'Usuário'}
               </p>
             </div>
             <div>
@@ -357,7 +328,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdate, onLogout }) =
               <p className="text-white font-medium">{user.group || 'Não informado'}</p>
             </div>
           </div>
-          
+
           <div className="pt-4 border-t border-gray-800">
             <h3 className="text-lg font-medium text-gray-300 mb-4">Segurança</h3>
             <div className="flex justify-between items-center p-4 bg-gray-800/50 rounded-lg">
