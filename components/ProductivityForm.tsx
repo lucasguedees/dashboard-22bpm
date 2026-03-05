@@ -118,7 +118,7 @@ const ProductivityForm: React.FC<ProductivityFormProps> = ({ onSave, onCancel, i
                 step={f.key === 'drugsKg' ? '0.001' : '1'} 
                 placeholder={f.placeholder}
                 value={formData[f.key as keyof typeof formData]} 
-                onChange={e => setFormData({...formData, [f.key]: e.target.value})}
+                onChange={e => setFormData({...formData, [f.key]: Number(e.target.value)})}
                 className="bg-gray-800 border border-gray-700 text-white rounded-lg p-3 text-lg font-bold outline-none focus:border-emerald-500"/>
             </div>
           ))}
