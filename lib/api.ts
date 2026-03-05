@@ -317,6 +317,7 @@ export async function insertProductivity(payload: Omit<ProductivityRecord, 'id' 
       created_by: profileId,
     })
     .select('*')
+    .eq('created_by', profileId)
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -340,7 +341,7 @@ export async function updateProductivity(id: string, payload: Omit<ProductivityR
       weapons: payload.weapons,
       arrests: payload.arrests,
     })
-    .eq('auth_user_id', id)
+    .eq('id', id)
     .select('*')
     .maybeSingle();
   if (error) throw error;
@@ -349,7 +350,7 @@ export async function updateProductivity(id: string, payload: Omit<ProductivityR
 
 export async function deleteProductivityById(id: string) {
   if (!supabase) throw new Error('Supabase client not available');
-  await supabase.from('productivity_records').delete().eq('auth_user_id', id);
+  await supabase.from('productivity_records').delete().eq('id', id);
 }
 
 import { CITIES } from '../constants';
