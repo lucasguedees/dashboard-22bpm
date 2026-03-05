@@ -236,7 +236,7 @@ export async function insertInfraction(payload: Omit<TrafficInfraction, 'id' | '
       others: payload.others,
       created_by: profileId,
     })
-    .select('')
+    .select('*')
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -256,7 +256,7 @@ export async function updateInfraction(id: string, payload: Omit<TrafficInfracti
       others: payload.others,
     })
     .eq('id', id)
-    .select('')
+    .select('*')
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -311,12 +311,12 @@ export async function insertProductivity(payload: Omit<ProductivityRecord, 'id' 
       fugitives: payload.fugitives,
       vehicles_inspected: payload.vehiclesInspected,
       people_approached: payload.peopleApproached,
-      drugs_kg: Number(payload.drugsKg) || 0,
+      drugs_kg: parseFloat(String(payload.drugsKg)) || 0,
       weapons: payload.weapons,
       arrests: payload.arrests,
       created_by: profileId,
     })
-    .select('')
+    .select('*')
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -336,12 +336,12 @@ export async function updateProductivity(id: string, payload: Omit<ProductivityR
       fugitives: payload.fugitives,
       vehicles_inspected: payload.vehiclesInspected,
       people_approached: payload.peopleApproached,
-      drugs_kg: Number(payload.drugsKg) || 0,
+      drugs_kg: parseFloat(String(payload.drugsKg)) || 0,
       weapons: payload.weapons,
       arrests: payload.arrests,
     })
     .eq('auth_user_id', id)
-    .select('')
+    .select('*')
     .maybeSingle();
   if (error) throw error;
   return data;
