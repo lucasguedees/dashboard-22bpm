@@ -264,7 +264,7 @@ export async function updateInfraction(id: string, payload: Omit<TrafficInfracti
 
 export async function deleteInfractionById(id: string) {
   if (!supabase) throw new Error('Supabase not configured');
-  const { error } = await supabase.from('traffic_infractions').delete().eq('auth_user_id', id);
+  const { error } = await supabase.from('traffic_infractions').delete().eq('id', id);
   if (error) throw error;
 }
 
@@ -317,7 +317,6 @@ export async function insertProductivity(payload: Omit<ProductivityRecord, 'id' 
       created_by: profileId,
     })
     .select('*')
-    .eq('created_by', profileId)
     .maybeSingle();
   if (error) throw error;
   return data;
