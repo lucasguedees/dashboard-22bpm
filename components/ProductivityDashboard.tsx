@@ -446,7 +446,7 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
 
       // 2. Capturar e adicionar gráficos
       const charts = [
-        { selector: '.grid-cols-1 > div:nth-child(1)', title: 'PROCEDIMENTOS ADMINISTRATIVOS', height: 300 },
+        { selector: '.grid-cols-1 > div:nth-child(1)', title: 'DOCUMENTOS OPERACIONAIS', height: 300 },
         { selector: '.grid-cols-1 > div:nth-child(2)', title: 'ATIVIDADES PREVENTIVAS', height: 300 },
         { selector: '.grid-cols-1 > div:nth-child(3)', title: 'REPRESSÃO E APREENSÕES', height: 350 }
       ];
@@ -1444,7 +1444,7 @@ const ProductivityDashboard: React.FC<ProductivityDashboardProps> = ({ data, isA
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Gráfico 1: Procedimentos Administrativos */}
           <ChartContainer 
-            title="Procedimentos Administrativos"
+            title="Documentos Operacionais"
             action={
               renderYearMonthFilters(
                 monthFilterProc,
